@@ -14,13 +14,24 @@ Number = Double
 public export
 data Id = MkId (List1 Bits8)
 
-mutual
-  public export
-  data Var0
-    = RealVar Id
-    | IntVar Id
-    | StrVar Id
+public export
+data Var0
+  = RealVar Id
+  | IntVar Id
+  | StrVar Id
 
+public export
+data Fun
+    = Peek
+    | IntFun
+    | Rnd
+    | LeftStr
+    | Chr
+    | Val
+    | Asc
+    | Tab
+
+mutual
   public export
   data Var
     = MkVar Var0 (List Expr)
@@ -28,8 +39,21 @@ mutual
   public export
   data Expr
     = VarE Var
+    -- | StrLitE (List Bits8)
     | NumLitE Number
+    -- | EqE Expr Expr
+    -- | NEqE Expr Expr
+    -- | LTE Expr Expr
+    -- | LEE Expr Expr
+    -- | GTE Expr Expr
+    -- | GEE Expr Expr
     | PlusE Expr Expr
+    -- | MinusE Expr Expr
+    -- | MulE Expr Expr
+    | FunE Fun (List1 Expr)
+    | AndE Expr Expr
+    | OrE Expr Expr
+    -- | NegE Expr
 
 public export
 data Stmt
@@ -43,16 +67,16 @@ data Stmt
   | Read Var
   | Next Var0
   | Data (List1 Number)
-  -- | Print [Expr] Bool
-  -- | PrintH Expr [Expr]
+  -- | Print (List Expr) Bool
+  -- | PrintH Expr (List Expr)
   -- | Clr
   -- | Run
   -- | Sys Int16
   -- | Open Expr Expr Expr Expr
-  -- | InputH Expr [Var]
+  -- | InputH Expr (List Var)
   -- | Close Expr
-  -- | OnGoto Expr [LineNum]
-  -- | OnGosub Expr [LineNum]
+  -- | OnGoto Expr (List1 LineNum)
+  -- | OnGosub Expr (List1 LineNum)
   -- | Get Var
   -- | End
   -- | Rem
@@ -62,18 +86,32 @@ public export
 Show Id where
   show (MkId nm) = pack . toList . map (chr . cast) $ nm
 
+public export
+Show Var0 where
+  show (RealVar nm) = show nm
+  show (IntVar nm) = show nm
+  show (StrVar nm) = show nm
+
+public export
+Show Fun where
+  show Peek = "PEEK"
+  show IntFun = "INT"
+  show Rnd = "RND"
+  show LeftStr = "LEFT$"
+  show Chr = "CHR$"
+  show Val = "VAL"
+  show Asc = "ASC"
+  show Tab = "TAB"
+
 mutual
   public export
   Show Expr where
     show (NumLitE n) = show n
     show (PlusE x y) = show x ++ " + " ++ show y
     show (VarE v) = show v
-
-  public export
-  Show Var0 where
-    show (RealVar nm) = show nm
-    show (IntVar nm) = show nm
-    show (StrVar nm) = show nm
+    show (FunE f args) = show f ++ "(" ++ show args ++ ")"
+    show (AndE x y) = show x ++ " AND " ++ show y
+    show (OrE x y) = show x ++ " OR " ++ show y
 
   public export
   Show Var where

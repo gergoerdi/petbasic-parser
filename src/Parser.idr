@@ -37,8 +37,8 @@ colon = lexeme $ bits8 0x3a
 comma = lexeme $ bits8 0x2c
 eq = lexeme $ bits8 0xb2
 
-parens : Grammar state Bits8 c a -> Grammar state Bits8 True a
--- parens p = lexeme (bits8 0x28) *> p <* lexeme (bits8 0x29)
+parens : {c : Bool} -> Grammar state Bits8 c a -> Grammar state Bits8 True a
+parens = between (lexeme $ bits8 0x28) (lexeme $ bits8 0x29)
 
 digit : Grammar state Bits8 True Bits8
 digit = terminal "digit" $ \x =>
@@ -48,7 +48,7 @@ digitLit : (Num a) => Grammar state Bits8 True a
 digitLit = fromInteger . cast . (\x => x - 0x30) <$> digit
 
 numLit : (Num a, Neg a) => Grammar state Bits8 True a
-numLit {a} = fromDigits <$> sign <*> lexeme (some digitLit)
+numLit {a} = fromDigits <$> lexeme sign <*> lexeme (some digitLit)
   where
     fromDigits : Bool -> List1 a -> a
     fromDigits neg =
@@ -60,7 +60,7 @@ numLit {a} = fromDigits <$> sign <*> lexeme (some digitLit)
 
 var0 : Grammar state Bits8 True Var0
 var0 = do
-  b1 <- startId
+  b1 <- lexeme startId
   bs <- many contId
   varKind <*> pure (MkId $ b1 ::: bs)
   where
@@ -74,17 +74,56 @@ var0 = do
       StrVar <$ bits8 0x24 <|>
       pure RealVar
 
+data Assoc
+   = AssocNone
+   | AssocLeft
+   | AssocRight
+
+data Op state k a
+  = Prefix (Grammar state k True (a -> a))
+  | Infix (Grammar state k True (a -> a -> a)) Assoc
+
 mutual
   expr : Grammar state Bits8 True Expr
-  expr = bin 0xaa PlusE term <|> term
+  expr = term1
     where
       bin : Bits8 -> (a -> a -> b) -> (Grammar state Bits8 True a) -> Grammar state Bits8 True b
-      bin op f tm = try $ f <$> tm <*> (lexeme (bits8 op) *> tm)
-     
-      term : Grammar state Bits8 True Expr
-      term = 
-            NumLitE <$> numLit 
+      bin op f tm = f <$> tm <*> (lexeme (bits8 op) *> tm)
+
+      table : List (List (Op state Bits8 Expr))
+      table =
+        [ [ Infix (lexeme $ PlusE <$ bits8 0xaa) AssocLeft
+          ]
+        , [ Infix (lexeme $ AndE <$ bits8 0xaf) AssocLeft
+          , Infix (lexeme $ OrE <$ bits8 0xb0) AssocLeft
+          ]
+        ]
+
+      fun : Grammar state Bits8 True Fun
+      fun = lexeme $
+            Peek    <$ bits8 0xc2
+        <|> IntFun  <$ bits8 0xb5
+        <|> Rnd     <$ bits8 0xbb
+        <|> Chr     <$ bits8 0xc7
+        <|> LeftStr <$ bits8 0xc8
+        <|> Val     <$ bits8 0xc5
+        <|> Asc     <$ bits8 0xc6
+
+      term1, term2, term3 : Grammar state Bits8 True Expr
+      term1 =
+            bin 0xaa PlusE term2
+        <|> term2
+
+      term2 =
+            bin 0xaf AndE term3
+        <|> bin 0xb0 OrE term3
+        <|> term3
+
+      term3 =
+            NumLitE <$> numLit
         <|> VarE <$> var
+        <|> FunE <$> fun <*> parens (sepBy1 comma expr)
+        <|> parens expr
 
   var : Grammar state Bits8 True Var
   var = MkVar <$> var0 <*> ({-parens (sepBy1 comma expr) <|> -} pure [])
@@ -116,6 +155,6 @@ main = do
     let buf = let (pre, post) = splitAt (0x0803 + 28285) buf
               in  pre ++ [0xb2] ++ post
     let buf = drop 0x0803 buf
-    case parse (replicateM 5 line) $ map irrelevantBounds buf of
+    case parse (replicateM 6 line) $ map irrelevantBounds buf of
       Left (err1 ::: errs) => printLn err1 >> printLn errs
-      Right (x, rest) => printLn x >> printLn (map val $ take 20 rest)
+      Right (x, rest) => traverse_ printLn x >> printLn (map val $ take 20 rest)
