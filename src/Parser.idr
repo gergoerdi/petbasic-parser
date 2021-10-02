@@ -1,5 +1,6 @@
 module Parser
 
+import Syntax
 import Text.Lexer
 import Text.Parser
 import Data.Buffer
@@ -22,25 +23,11 @@ bits8 x = terminal ("Byte " ++ show x) $ \x' => if x == x' then Just () else Not
 lexeme : {c : Bool} -> Grammar state Bits8 c a -> Grammar state Bits8 c a
 lexeme p = afterMany (bits8 0x20) p
 
-LineNum : Type
-LineNum = Bits16
-
 lineNum : Grammar state Bits8 True LineNum
 lineNum = do
   lo <- anyBits8
   hi <- anyBits8
   pure $ cast hi * 256 + cast lo
-
-data Expr = NumLitE Double
-
-Show Expr where
-  show (NumLitE n) = show n
-
-data Stmt = Goto LineNum | Poke Expr Expr
-
-Show Stmt where
-  show (Poke addr dat) = "POKE " ++ show addr ++ ", " ++ show dat
-  show (Goto n) = "GOTO " ++ show n
 
 colon : Grammar state Bits8 True ()
 colon = lexeme $ bits8 0x3a
