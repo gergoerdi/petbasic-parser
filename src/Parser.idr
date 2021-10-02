@@ -58,10 +58,6 @@ numLit {a} = fromDigits <$> sign <*> lexeme (some digitLit)
     sign : Grammar state Bits8 False Bool
     sign = option False $ True <$ bits8 0xab
 
-
-expr : Grammar state Bits8 True Expr
-expr = NumLitE <$> numLit
-
 var0 : Grammar state Bits8 True Var0
 var0 = do
   b1 <- startId
@@ -78,8 +74,20 @@ var0 = do
       StrVar <$ bits8 0x24 <|>
       pure RealVar
 
-var : Grammar state Bits8 True Var
-var = MkVar <$> var0 <*> ({-parens (sepBy1 comma expr) <|> -} pure [])
+mutual
+  expr : Grammar state Bits8 True Expr
+  expr = bin 0xaa PlusE term <|> term
+    where
+      bin : Bits8 -> (a -> a -> b) -> (Grammar state Bits8 True a) -> Grammar state Bits8 True b
+      bin op f tm = try $ f <$> tm <*> (lexeme (bits8 op) *> tm)
+     
+      term : Grammar state Bits8 True Expr
+      term = 
+            NumLitE <$> numLit 
+        <|> VarE <$> var
+
+  var : Grammar state Bits8 True Var
+  var = MkVar <$> var0 <*> ({-parens (sepBy1 comma expr) <|> -} pure [])
 
 stmt : Grammar state Bits8 True Stmt
 stmt = lexeme $ do
@@ -88,6 +96,7 @@ stmt = lexeme $ do
   <|> For <$ bits8 0x81 <*> var0 <* eq <*> expr <* lexeme (bits8 0xa4) <*> expr <*> lexeme (optional $ bits8 0xa9 *> numLit)
   <|> Next <$ bits8 0x82 <*> var0
   <|> Read <$ bits8 0x87 <*> var
+  <|> Data <$ bits8 0x83 <*> sepBy1 comma numLit
 
 line : Grammar state Bits8 True (LineNum, List1 Stmt)
 line = (,) <$> lineNum <*> sepBy1 colon stmt <* bits8 0x00 <* anyBits8 <* anyBits8
@@ -98,8 +107,6 @@ Show (ParsingError a) where
 replicateM : (n : Nat) -> Grammar state k True a -> Grammar state k (n > 0) (List a)
 replicateM 0 _ = pure []
 replicateM (S n) act = (::) <$> act <*> replicateM n act
-  where
-  lemma : c || Delay ((n > 0 && Delay c)) = c
 
 main : IO ()
 main = do
@@ -109,6 +116,6 @@ main = do
     let buf = let (pre, post) = splitAt (0x0803 + 28285) buf
               in  pre ++ [0xb2] ++ post
     let buf = drop 0x0803 buf
-    case parse (lineNum *> replicateM 2 (stmt <* colon)) $ map irrelevantBounds buf of
+    case parse (replicateM 5 line) $ map irrelevantBounds buf of
       Left (err1 ::: errs) => printLn err1 >> printLn errs
-      Right (x, rest) => printLn x >> printLn (map val $ take 10 rest)
+      Right (x, rest) => printLn x >> printLn (map val $ take 20 rest)

@@ -1,6 +1,7 @@
 module Syntax
 
 import Data.List1
+import Data.String
 
 public export
 LineNum : Type
@@ -26,15 +27,36 @@ mutual
 
   public export
   data Expr
-    = NumLitE Number
+    = VarE Var
+    | NumLitE Number
+    | PlusE Expr Expr
 
 public export
 data Stmt
+  -- = If Expr Stmt
+  -- | Assign Var Expr
   = Goto LineNum
+  -- | Gosub LineNum
+  -- | Return
   | Poke Expr Expr
   | For Var0 Expr Expr (Maybe Number)
   | Read Var
   | Next Var0
+  | Data (List1 Number)
+  -- | Print [Expr] Bool
+  -- | PrintH Expr [Expr]
+  -- | Clr
+  -- | Run
+  -- | Sys Int16
+  -- | Open Expr Expr Expr Expr
+  -- | InputH Expr [Var]
+  -- | Close Expr
+  -- | OnGoto Expr [LineNum]
+  -- | OnGosub Expr [LineNum]
+  -- | Get Var
+  -- | End
+  -- | Rem
+
 
 public export
 Show Id where
@@ -44,6 +66,8 @@ mutual
   public export
   Show Expr where
     show (NumLitE n) = show n
+    show (PlusE x y) = show x ++ " + " ++ show y
+    show (VarE v) = show v
 
   public export
   Show Var0 where
@@ -53,6 +77,7 @@ mutual
 
   public export
   Show Var where
+    show (MkVar v []) = show v
     show (MkVar v is) = show v ++ show is
 
   public export
@@ -62,3 +87,4 @@ mutual
     show (For v from to step) = "FOR " ++ show v ++ " = " ++ show from ++ " TO " ++ show to ++ maybe "" (\x => "STEP " ++ show x) step
     show (Read v) = "READ " ++ show v
     show (Next v) = "NEXT " ++ show v
+    show (Data bs) = "DATA " ++ show bs -- intersperse ", " (map show bs)
