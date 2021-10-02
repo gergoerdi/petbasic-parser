@@ -131,7 +131,6 @@ stmt = lexeme $ choice
   , Goto <$ bits8 0x89 <*> numLit
   , Gosub <$ bits8 0x8d <*> numLit
   , Poke <$ bits8 0x97 <*> expr <* comma <*> expr
-  , Goto <$ bits8 0x89 <*> numLit
   , For <$ bits8 0x81
         <*> var0 <* eq <*> expr <* lexeme (bits8 0xa4) <*> expr
         <*> lexeme (optional $ bits8 0xa9 *> numLit)
@@ -144,6 +143,8 @@ stmt = lexeme $ choice
   , Data <$ bits8 0x83 <*> sepBy1 comma numLit
   , Open <$ bits8 0x9f <*> expr <* comma <*> expr <* comma <*> expr <* comma <*> expr
   , Close <$ bits8 0xa0 <*> expr
+  , OnGoto <$ bits8 0x91 <*> expr <* bits8 0x89 <*> sepBy1 comma numLit
+  , OnGosub <$ bits8 0x91 <*> expr <* bits8 0x8d <*> sepBy1 comma numLit
   , PrintH <$ bits8 0x98 <*> expr <* comma <*> sepBy1 comma expr
   , InputH <$ bits8 0x84 <*> expr <* comma <*> sepBy1 comma var
   ]
