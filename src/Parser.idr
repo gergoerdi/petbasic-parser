@@ -3,6 +3,7 @@ module Parser
 import Syntax
 import Text.Lexer
 import Text.Parser
+import Text.Parser.Expression
 import Data.List
 import Data.Maybe
 
@@ -73,32 +74,6 @@ var0 = do
       <|> StrVar <$ bits8 0x24
       <|> pure RealVar
 
-data Assoc
-   = AssocNone
-   | AssocLeft
-   | AssocRight
-
-data Op state k a
-  = Prefix (Grammar state k True (a -> a))
-  | Infix (Grammar state k True (a -> a -> a)) Assoc
-
-expressionParser :
-  List (List (Op state k a)) ->
-  Grammar state k True a ->
-  Grammar state k True a
-expressionParser table term = foldr level term table
-  where
-    level : List (Op state k a) -> Grammar state k True a -> Grammar state k True a
-    level ops factor = choiceMap op ops <|> factor
-      where
-        op : Op state k a -> Grammar state k True a
-        op (Infix parser assoc) = do -- TODO: associativity
-          x <- factor
-          f <- parser
-          y <- factor
-          pure $ f x y
-        op (Prefix parser) = parser <*> factor
-
 mutual
   expr : Grammar state Bits8 True Expr
   expr = expressionParser table term <|> fail "expression"
@@ -110,10 +85,10 @@ mutual
       table =
         [ [ Prefix (lexeme $ NegE <$ bits8 0xab)
           ]
-        , [ Infix (lexeme $ MulE <$ bits8 0xac) AssocLeft
+        , [ Infix (lexeme $ Bin Mul <$ bits8 0xac) AssocLeft
           ]
-        , [ Infix (lexeme $ PlusE <$ bits8 0xaa) AssocLeft
-          , Infix (lexeme $ MinusE <$ bits8 0xab) AssocLeft
+        , [ Infix (lexeme $ Bin Plus <$ bits8 0xaa) AssocLeft
+          , Infix (lexeme $ Bin Minus <$ bits8 0xab) AssocLeft
           ]
         -- , [ Infix (lexeme $ GEE <$ (bits8 0xb1 *> bits8 0xb2)) AssocNone
         --   , Infix (lexeme $ GTE <$ bits8 0xb1) AssocNone
@@ -122,8 +97,8 @@ mutual
         --   , Infix (lexeme $ LEE <$ (bits8 0xb3 *> bits8 0xb2)) AssocNone
         --   , Infix (lexeme $ LTE <$ bits8 0xb3) AssocNone
         --   ]
-        , [ Infix (lexeme $ AndE <$ bits8 0xaf) AssocLeft
-          , Infix (lexeme $ OrE <$ bits8 0xb0) AssocLeft
+        , [ Infix (lexeme $ Bin And <$ bits8 0xaf) AssocLeft
+          , Infix (lexeme $ Bin Or <$ bits8 0xb0) AssocLeft
           ]
         ]
 
@@ -151,7 +126,8 @@ mutual
 
 stmt : Grammar state Bits8 True Stmt
 stmt = lexeme $ choice
-  [ Assign <$> var <* eq <*> expr
+  [ If <$ bits8 0x8b <*> expr <* lexeme (bits8 0xa7) <*> (stmt <|> (Goto <$> numLit))
+  , Assign <$> var <* eq <*> expr
   , Goto <$ bits8 0x89 <*> numLit
   , Gosub <$ bits8 0x8d <*> numLit
   , Poke <$ bits8 0x97 <*> expr <* comma <*> expr
@@ -167,6 +143,9 @@ stmt = lexeme $ choice
   , Read <$ bits8 0x87 <*> var
   , Data <$ bits8 0x83 <*> sepBy1 comma numLit
   , Open <$ bits8 0x9f <*> expr <* comma <*> expr <* comma <*> expr <* comma <*> expr
+  , Close <$ bits8 0xa0 <*> expr
+  , PrintH <$ bits8 0x98 <*> expr <* comma <*> sepBy1 comma expr
+  , InputH <$ bits8 0x84 <*> expr <* comma <*> sepBy1 comma var
   ]
 
 line : Grammar state Bits8 True (LineNum, List1 Stmt)
