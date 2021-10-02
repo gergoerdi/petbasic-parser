@@ -87,17 +87,13 @@ expressionParser :
   List (List (Op state k a)) ->
   Grammar state k True a ->
   Grammar state k True a
-expressionParser table term = go table
+expressionParser table term = foldr level term table
   where
-    go : List (List (Op state k a)) -> Grammar state k True a
-    go [] = term
-    go (ops :: next) = choiceMap op ops <|> factor
+    level : List (Op state k a) -> Grammar state k True a -> Grammar state k True a
+    level ops factor = choiceMap op ops <|> factor
       where
-        factor : Grammar state k True a
-        factor = go next
-
         op : Op state k a -> Grammar state k True a
-        op (Infix parser assoc) = do
+        op (Infix parser assoc) = do -- TODO: associativity
           x <- factor
           f <- parser
           y <- factor
