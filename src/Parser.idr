@@ -83,9 +83,30 @@ data Op state k a
   = Prefix (Grammar state k True (a -> a))
   | Infix (Grammar state k True (a -> a -> a)) Assoc
 
+expressionParser :
+  List (List (Op state k a)) ->
+  Grammar state k True a ->
+  Grammar state k True a
+expressionParser table term = go table
+  where
+    go : List (List (Op state k a)) -> Grammar state k True a
+    go [] = term
+    go (ops :: next) = choiceMap op ops <|> factor
+      where
+        factor : Grammar state k True a
+        factor = go next
+
+        op : Op state k a -> Grammar state k True a
+        op (Infix parser assoc) = do
+          x <- factor
+          f <- parser
+          y <- factor
+          pure $ f x y
+        op (Prefix parser) = parser <*> factor
+
 mutual
   expr : Grammar state Bits8 True Expr
-  expr = term1
+  expr = expressionParser table term
     where
       bin : Bits8 -> (a -> a -> b) -> (Grammar state Bits8 True a) -> Grammar state Bits8 True b
       bin op f tm = f <$> tm <*> (lexeme (bits8 op) *> tm)
@@ -100,26 +121,18 @@ mutual
         ]
 
       fun : Grammar state Bits8 True Fun
-      fun = lexeme $
-            Peek    <$ bits8 0xc2
-        <|> IntFun  <$ bits8 0xb5
-        <|> Rnd     <$ bits8 0xbb
-        <|> Chr     <$ bits8 0xc7
-        <|> LeftStr <$ bits8 0xc8
-        <|> Val     <$ bits8 0xc5
-        <|> Asc     <$ bits8 0xc6
+      fun = lexeme $ choice
+        [ Peek    <$ bits8 0xc2
+        , IntFun  <$ bits8 0xb5
+        , Rnd     <$ bits8 0xbb
+        , Chr     <$ bits8 0xc7
+        , LeftStr <$ bits8 0xc8
+        , Val     <$ bits8 0xc5
+        , Asc     <$ bits8 0xc6
+        ]
 
-      term1, term2, term3 : Grammar state Bits8 True Expr
-      term1 =
-            bin 0xaa PlusE term2
-        <|> term2
-
-      term2 =
-            bin 0xaf AndE term3
-        <|> bin 0xb0 OrE term3
-        <|> term3
-
-      term3 =
+      term : Grammar state Bits8 True Expr
+      term =
             NumLitE <$> numLit
         <|> VarE <$> var
         <|> FunE <$> fun <*> parens (sepBy1 comma expr)
@@ -129,13 +142,16 @@ mutual
   var = MkVar <$> var0 <*> ({-parens (sepBy1 comma expr) <|> -} pure [])
 
 stmt : Grammar state Bits8 True Stmt
-stmt = lexeme $ do
-      Poke <$ bits8 0x97 <*> expr <* comma <*> expr
-  <|> Goto <$ bits8 0x89 <*> numLit
-  <|> For <$ bits8 0x81 <*> var0 <* eq <*> expr <* lexeme (bits8 0xa4) <*> expr <*> lexeme (optional $ bits8 0xa9 *> numLit)
-  <|> Next <$ bits8 0x82 <*> var0
-  <|> Read <$ bits8 0x87 <*> var
-  <|> Data <$ bits8 0x83 <*> sepBy1 comma numLit
+stmt = lexeme $ choice
+  [ Poke <$ bits8 0x97 <*> expr <* comma <*> expr
+  , Goto <$ bits8 0x89 <*> numLit
+  , For <$ bits8 0x81
+        <*> var0 <* eq <*> expr <* lexeme (bits8 0xa4) <*> expr
+        <*> lexeme (optional $ bits8 0xa9 *> numLit)
+  , Next <$ bits8 0x82 <*> var0
+  , Read <$ bits8 0x87 <*> var
+  , Data <$ bits8 0x83 <*> sepBy1 comma numLit
+  ]
 
 line : Grammar state Bits8 True (LineNum, List1 Stmt)
 line = (,) <$> lineNum <*> sepBy1 colon stmt <* bits8 0x00 <* anyBits8 <* anyBits8
