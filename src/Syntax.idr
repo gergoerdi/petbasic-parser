@@ -39,7 +39,7 @@ mutual
   public export
   data Expr
     = VarE Var
-    -- | StrLitE (List Bits8)
+    | StrLitE (List Bits8)
     | NumLitE Number
     -- | EqE Expr Expr
     -- | NEqE Expr Expr
@@ -48,18 +48,18 @@ mutual
     -- | GTE Expr Expr
     -- | GEE Expr Expr
     | PlusE Expr Expr
-    -- | MinusE Expr Expr
-    -- | MulE Expr Expr
+    | MinusE Expr Expr
+    | MulE Expr Expr
     | FunE Fun (List1 Expr)
     | AndE Expr Expr
     | OrE Expr Expr
-    -- | NegE Expr
+    | NegE Expr
 
 public export
 data Stmt
   -- = If Expr Stmt
-  -- | Assign Var Expr
-  = Goto LineNum
+  = Assign Var Expr
+  | Goto LineNum
   -- | Gosub LineNum
   -- | Return
   | Poke Expr Expr
@@ -67,9 +67,9 @@ data Stmt
   | Read Var
   | Next Var0
   | Data (List1 Number)
-  -- | Print (List Expr) Bool
+  | Print (List Expr) Bool
   -- | PrintH Expr (List Expr)
-  -- | Clr
+  | Clr
   -- | Run
   -- | Sys Int16
   -- | Open Expr Expr Expr Expr
@@ -107,11 +107,15 @@ mutual
   public export
   Show Expr where
     show (NumLitE n) = show n
+    show (StrLitE s) = "\"" ++ (pack . map (chr . cast) $ s) ++ "\""
     show (PlusE x y) = show x ++ " + " ++ show y
+    show (MinusE x y) = show x ++ " - " ++ show y
+    show (MulE x y) = show x ++ " * " ++ show y
     show (VarE v) = show v
     show (FunE f args) = show f ++ "(" ++ show args ++ ")"
     show (AndE x y) = show x ++ " AND " ++ show y
     show (OrE x y) = show x ++ " OR " ++ show y
+    show (NegE x) = "-" ++ show x
 
   public export
   Show Var where
@@ -120,9 +124,12 @@ mutual
 
   public export
   Show Stmt where
+    show (Assign v x) = show v ++ " = " ++ show x
     show (Poke addr dat) = "POKE " ++ show addr ++ ", " ++ show dat
     show (Goto n) = "GOTO " ++ show n
     show (For v from to step) = "FOR " ++ show v ++ " = " ++ show from ++ " TO " ++ show to ++ maybe "" (\x => "STEP " ++ show x) step
     show (Read v) = "READ " ++ show v
     show (Next v) = "NEXT " ++ show v
     show (Data bs) = "DATA " ++ show bs -- intersperse ", " (map show bs)
+    show (Print xs newline) = "PRINT " ++ show xs ++ if newline then "" else ";"
+    show Clr = "CLR"

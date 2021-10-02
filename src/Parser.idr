@@ -32,10 +32,11 @@ lineNum = do
   hi <- anyBits8
   pure $ cast hi * 256 + cast lo
 
-colon, comma, eq : Grammar state Bits8 True ()
+colon, comma, eq, semi : Grammar state Bits8 True ()
 colon = lexeme $ bits8 0x3a
 comma = lexeme $ bits8 0x2c
 eq = lexeme $ bits8 0xb2
+semi = lexeme $ bits8 0x3b
 
 parens : {c : Bool} -> Grammar state Bits8 c a -> Grammar state Bits8 True a
 parens = between (lexeme $ bits8 0x28) (lexeme $ bits8 0x29)
@@ -58,6 +59,12 @@ numLit {a} = fromDigits <$> lexeme sign <*> lexeme (some digitLit)
     sign : Grammar state Bits8 False Bool
     sign = option False $ True <$ bits8 0xab
 
+strLit : Grammar state Bits8 True (List Bits8)
+strLit = lexeme dquote *> manyTill dquote anyBits8
+  where
+    dquote : Grammar state Bits8 True ()
+    dquote = bits8 0x22
+
 var0 : Grammar state Bits8 True Var0
 var0 = do
   b1 <- lexeme startId
@@ -70,9 +77,9 @@ var0 = do
 
     varKind : Grammar state Bits8 False (Id -> Var0)
     varKind =
-      IntVar <$ bits8 0x25 <|>
-      StrVar <$ bits8 0x24 <|>
-      pure RealVar
+          IntVar <$ bits8 0x25
+      <|> StrVar <$ bits8 0x24
+      <|> pure RealVar
 
 data Assoc
    = AssocNone
@@ -102,15 +109,27 @@ expressionParser table term = foldr level term table
 
 mutual
   expr : Grammar state Bits8 True Expr
-  expr = expressionParser table term
+  expr = expressionParser table term <|> fail "expression"
     where
       bin : Bits8 -> (a -> a -> b) -> (Grammar state Bits8 True a) -> Grammar state Bits8 True b
       bin op f tm = f <$> tm <*> (lexeme (bits8 op) *> tm)
 
       table : List (List (Op state Bits8 Expr))
       table =
-        [ [ Infix (lexeme $ PlusE <$ bits8 0xaa) AssocLeft
+        [ [ Prefix (lexeme $ NegE <$ bits8 0xab)
           ]
+        , [ Infix (lexeme $ MulE <$ bits8 0xac) AssocLeft
+          ]
+        , [ Infix (lexeme $ PlusE <$ bits8 0xaa) AssocLeft
+          , Infix (lexeme $ MinusE <$ bits8 0xab) AssocLeft
+          ]
+        -- , [ Infix (lexeme $ GEE <$ (bits8 0xb1 *> bits8 0xb2)) AssocNone
+        --   , Infix (lexeme $ GTE <$ bits8 0xb1) AssocNone
+        --   , Infix (lexeme $ EqE <$ bits8 0xb2) AssocNone
+        --   , Infix (lexeme $ NEqE <$ (bits8 0xb3 *> bits8 0xb1)) AssocNone
+        --   , Infix (lexeme $ LEE <$ (bits8 0xb3 *> bits8 0xb2)) AssocNone
+        --   , Infix (lexeme $ LTE <$ bits8 0xb3) AssocNone
+        --   ]
         , [ Infix (lexeme $ AndE <$ bits8 0xaf) AssocLeft
           , Infix (lexeme $ OrE <$ bits8 0xb0) AssocLeft
           ]
@@ -130,6 +149,7 @@ mutual
       term : Grammar state Bits8 True Expr
       term =
             NumLitE <$> numLit
+        <|> StrLitE <$> strLit
         <|> VarE <$> var
         <|> FunE <$> fun <*> parens (sepBy1 comma expr)
         <|> parens expr
@@ -139,12 +159,15 @@ mutual
 
 stmt : Grammar state Bits8 True Stmt
 stmt = lexeme $ choice
-  [ Poke <$ bits8 0x97 <*> expr <* comma <*> expr
+  [ Assign <$> var <* eq <*> expr
+  , Poke <$ bits8 0x97 <*> expr <* comma <*> expr
   , Goto <$ bits8 0x89 <*> numLit
   , For <$ bits8 0x81
         <*> var0 <* eq <*> expr <* lexeme (bits8 0xa4) <*> expr
         <*> lexeme (optional $ bits8 0xa9 *> numLit)
   , Next <$ bits8 0x82 <*> var0
+  , Print <$ bits8 0x99 <*> many expr <*> (maybe True (const False) <$> optional semi)
+  , Clr <$ bits8 0x9c
   , Read <$ bits8 0x87 <*> var
   , Data <$ bits8 0x83 <*> sepBy1 comma numLit
   ]
@@ -167,6 +190,6 @@ main = do
     let buf = let (pre, post) = splitAt (0x0803 + 28285) buf
               in  pre ++ [0xb2] ++ post
     let buf = drop 0x0803 buf
-    case parse (replicateM 6 line) $ map irrelevantBounds buf of
+    case parse (replicateM 8 line) $ map irrelevantBounds buf of
       Left (err1 ::: errs) => printLn err1 >> printLn errs
       Right (x, rest) => traverse_ printLn x >> printLn (map val $ take 20 rest)
