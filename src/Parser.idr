@@ -155,7 +155,7 @@ mutual
         <|> parens expr
 
   var : Grammar state Bits8 True Var
-  var = MkVar <$> var0 <*> ({-parens (sepBy1 comma expr) <|> -} pure [])
+  var = MkVar <$> var0 <*> (parens (toList <$> sepBy1 comma expr) <|> pure [])
 
 stmt : Grammar state Bits8 True Stmt
 stmt = lexeme $ choice
