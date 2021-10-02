@@ -14,14 +14,18 @@ data Op state k a
   | Infix (Grammar state k True (a -> a -> a)) Assoc
 
 public export
+OpTable : Type -> Type -> Type -> Type
+OpTable state k a = List (List (Op state k a))
+
+public export
 expressionParser :
-  List (List (Op state k a)) ->
+  OpTable state k a ->
   Grammar state k True a ->
   Grammar state k True a
-expressionParser table term = foldr level term table
+expressionParser table term = foldl level term table
   where
-    level : List (Op state k a) -> Grammar state k True a -> Grammar state k True a
-    level ops factor = choiceMap op ops <|> factor
+    level : Grammar state k True a -> List (Op state k a) -> Grammar state k True a
+    level factor ops = choiceMap op ops <|> factor
       where
         op : Op state k a -> Grammar state k True a
         op (Infix parser assoc) = do -- TODO: associativity
