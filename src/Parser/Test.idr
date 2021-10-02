@@ -3,12 +3,12 @@ module Parser.Test
 import Syntax
 import Parser
 
-import Text.Lexer
 import Text.Parser
 import Data.Buffer
 import System.File.Buffer
 import Data.List
 import Data.Maybe
+import System
 
 loadImage : String -> IO (List Bits8)
 loadImage fn = do
@@ -22,12 +22,16 @@ replicateM (S n) act = (::) <$> act <*> replicateM n act
 
 main : IO ()
 main = do
+    n <- getArgs >>= \xs => pure $ case xs of
+      [_, x] => cast x
+      _ => 21
+
     let fn = "pokol.mem"
     buf <- loadImage fn
     let buf = drop 2 buf
     let buf = let (pre, post) = splitAt (0x0803 + 28285) buf
               in  pre ++ [0xb2] ++ post
     let buf = drop 0x0803 buf
-    case parse (replicateM 9 line) $ map irrelevantBounds buf of
+    case parse (replicateM n line) $ map irrelevantBounds buf of
       Left (err1 ::: errs) => printLn err1 >> printLn errs
       Right (x, rest) => traverse_ printLn x >> printLn (map val $ take 20 rest)
