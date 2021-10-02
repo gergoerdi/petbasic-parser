@@ -1,0 +1,9 @@
+package pokol
+
+depends = base >= 0.5.1, contrib >= 0.5.1
+
+sourcedir = "src"
+modules = Parser
+
+executable = "pokol-parser"
+main = Parser
