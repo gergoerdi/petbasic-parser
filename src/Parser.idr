@@ -162,8 +162,11 @@ stmt = lexeme $ choice
   , Next <$ bits8 0x82 <*> var0
   , Print <$ bits8 0x99 <*> many expr <*> (maybe True (const False) <$> optional semi)
   , Clr <$ bits8 0x9c
+  , Run <$ bits8 0x8a
+  , Sys <$ bits8 0x9e <*> numLit
   , Read <$ bits8 0x87 <*> var
   , Data <$ bits8 0x83 <*> sepBy1 comma numLit
+  , Open <$ bits8 0x9f <*> expr <* comma <*> expr <* comma <*> expr <* comma <*> expr
   ]
 
 line : Grammar state Bits8 True (LineNum, List1 Stmt)

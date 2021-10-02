@@ -61,30 +61,32 @@ data Stmt
   = Assign Var Expr
   | Goto LineNum
   | Gosub LineNum
-  -- | Return
+  | Return
   | Poke Expr Expr
   | For Var0 Expr Expr (Maybe Number)
   | Read Var
   | Next Var0
   | Data (List1 Number)
   | Print (List Expr) Bool
-  -- | PrintH Expr (List Expr)
+  | PrintH Expr (List Expr)
   | Clr
-  -- | Run
-  -- | Sys Int16
-  -- | Open Expr Expr Expr Expr
-  -- | InputH Expr (List Var)
-  -- | Close Expr
-  -- | OnGoto Expr (List1 LineNum)
-  -- | OnGosub Expr (List1 LineNum)
-  -- | Get Var
-  -- | End
-  -- | Rem
+  | Run
+  | Sys Bits16
+  | Open Expr Expr Expr Expr
+  | InputH Expr (List1 Var)
+  | Close Expr
+  | OnGoto Expr (List1 LineNum)
+  | OnGosub Expr (List1 LineNum)
+  | Get Var
+  | End
+  | Rem
 
+readable : (Foldable f) => f Bits8 -> String
+readable = pack . map (chr . cast) . toList
 
 public export
 Show Id where
-  show (MkId nm) = pack . toList . map (chr . cast) $ nm
+  show (MkId nm) = readable nm
 
 public export
 Show Var0 where
@@ -103,11 +105,16 @@ Show Fun where
   show Asc = "ASC"
   show Tab = "TAB"
 
+intersperse : String -> List String -> String
+intersperse sep [] = ""
+intersperse sep [s] = s
+intersperse sep (s1::s2::ss) = s1 ++ sep ++ intersperse sep (s2::ss)
+
 mutual
   public export
   Show Expr where
     show (NumLitE n) = show n
-    show (StrLitE s) = "\"" ++ (pack . map (chr . cast) $ s) ++ "\""
+    show (StrLitE s) = "\"" ++ readable s ++ "\""
     show (PlusE x y) = show x ++ " + " ++ show y
     show (MinusE x y) = show x ++ " - " ++ show y
     show (MulE x y) = show x ++ " * " ++ show y
@@ -124,13 +131,25 @@ mutual
 
   public export
   Show Stmt where
-    show (Assign v x) = show v ++ " = " ++ show x
-    show (Poke addr dat) = "POKE " ++ show addr ++ ", " ++ show dat
-    show (Goto n) = "GOTO " ++ show n
-    show (Gosub n) = "GOSUB " ++ show n
-    show (For v from to step) = "FOR " ++ show v ++ " = " ++ show from ++ " TO " ++ show to ++ maybe "" (\x => "STEP " ++ show x) step
-    show (Read v) = "READ " ++ show v
-    show (Next v) = "NEXT " ++ show v
-    show (Data bs) = "DATA " ++ show bs -- intersperse ", " (map show bs)
+    show (Assign v x) = unwords [show v, "=", show x]
+    show (Poke addr dat) = unwords ["POKE",  show addr ++ ", " ++ show dat]
+    show (Goto n) = unwords ["GOTO", show n]
+    show (Gosub n) = unwords ["GOSUB",  show n]
+    show Return = "RETURN"
+    show (For v from to step) = unwords ["FOR", show v, "=", show from,  "TO", show to] ++ maybe "" (\x => " STEP " ++ show x) step
+    show (Read v) = unwords ["READ", show v]
+    show (Next v) = unwords ["NEXT", show v]
+    show (Data bs) = unwords ["DATA", show bs] -- intersperse ", " (map show bs)
     show (Print xs newline) = "PRINT " ++ show xs ++ if newline then "" else ";"
+    show (PrintH fd xs) = unwords ["PRINT#", show fd ++ ",", show xs]
     show Clr = "CLR"
+    show Run = "RUN"
+    show (Sys n) = unwords ["SYS", show n]
+    show (Open fd dev sec fn) = unwords ["OPEN", intersperse "," [show fd, show dev, show sec, show fn]]
+    show (InputH fd vs) = unwords ["INPUT#", show fd, show vs]
+    show (Close fd) = unwords ["CLOSE", show fd]
+    show (OnGoto x ls) = unwords ["ON", show x, "GOTO", show ls]
+    show (OnGosub x ls) = unwords ["ON", show x, "GOSUB", show ls]
+    show (Get v) = unwords ["GET", show v]
+    show End = "END"
+    show Rem = "REM"
