@@ -22,14 +22,28 @@ data Var0
 
 public export
 data Fun
-    = Peek
-    | IntFun
-    | Rnd
-    | LeftStr
-    | Chr
-    | Val
-    | Asc
-    | Tab
+  = Peek
+  | IntFun
+  | Rnd
+  | LeftStr
+  | Chr
+  | Val
+  | Asc
+  | Tab
+
+public export
+data BinOp
+   = Eq
+   | NEq
+   | LT
+   | LE
+   | GT
+   | GE
+   | Plus
+   | Minus
+   | Mul
+   | And
+   | Or
 
 mutual
   public export
@@ -41,24 +55,14 @@ mutual
     = VarE Var
     | StrLitE (List Bits8)
     | NumLitE Number
-    -- | EqE Expr Expr
-    -- | NEqE Expr Expr
-    -- | LTE Expr Expr
-    -- | LEE Expr Expr
-    -- | GTE Expr Expr
-    -- | GEE Expr Expr
-    | PlusE Expr Expr
-    | MinusE Expr Expr
-    | MulE Expr Expr
+    | Bin BinOp Expr Expr
     | FunE Fun (List1 Expr)
-    | AndE Expr Expr
-    | OrE Expr Expr
     | NegE Expr
 
 public export
 data Stmt
-  -- = If Expr Stmt
-  = Assign Var Expr
+  = If Expr Stmt
+  | Assign Var Expr
   | Goto LineNum
   | Gosub LineNum
   | Return
@@ -68,7 +72,7 @@ data Stmt
   | Next Var0
   | Data (List1 Number)
   | Print (List Expr) Bool
-  | PrintH Expr (List Expr)
+  | PrintH Expr (List1 Expr)
   | Clr
   | Run
   | Sys Bits16
@@ -105,6 +109,20 @@ Show Fun where
   show Asc = "ASC"
   show Tab = "TAB"
 
+public export
+Show BinOp where
+  show Eq = "="
+  show NEq = "<>"
+  show LT = "<"
+  show LE = "<="
+  show GT = ">"
+  show GE = ">="
+  show Plus = "+"
+  show Minus = "-"
+  show Mul = "*"
+  show And = "AND"
+  show Or = "OR"
+
 intersperse : String -> List String -> String
 intersperse sep [] = ""
 intersperse sep [s] = s
@@ -115,13 +133,9 @@ mutual
   Show Expr where
     show (NumLitE n) = show n
     show (StrLitE s) = "\"" ++ readable s ++ "\""
-    show (PlusE x y) = show x ++ " + " ++ show y
-    show (MinusE x y) = show x ++ " - " ++ show y
-    show (MulE x y) = show x ++ " * " ++ show y
+    show (Bin op x y) = unwords [show x, show op, show y]
     show (VarE v) = show v
     show (FunE f args) = show f ++ "(" ++ show args ++ ")"
-    show (AndE x y) = show x ++ " AND " ++ show y
-    show (OrE x y) = show x ++ " OR " ++ show y
     show (NegE x) = "-" ++ show x
 
   public export
@@ -131,6 +145,7 @@ mutual
 
   public export
   Show Stmt where
+    show (If c t) = unwords ["IF", show c, "THEN", show t]
     show (Assign v x) = unwords [show v, "=", show x]
     show (Poke addr dat) = unwords ["POKE",  show addr ++ ", " ++ show dat]
     show (Goto n) = unwords ["GOTO", show n]
