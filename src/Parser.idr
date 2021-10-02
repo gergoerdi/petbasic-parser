@@ -3,8 +3,6 @@ module Parser
 import Syntax
 import Text.Lexer
 import Text.Parser
-import Data.Buffer
-import System.File.Buffer
 import Data.List
 import Data.Maybe
 
@@ -154,6 +152,8 @@ mutual
 stmt : Grammar state Bits8 True Stmt
 stmt = lexeme $ choice
   [ Assign <$> var <* eq <*> expr
+  , Goto <$ bits8 0x89 <*> numLit
+  , Gosub <$ bits8 0x8d <*> numLit
   , Poke <$ bits8 0x97 <*> expr <* comma <*> expr
   , Goto <$ bits8 0x89 <*> numLit
   , For <$ bits8 0x81

@@ -60,7 +60,7 @@ data Stmt
   -- = If Expr Stmt
   = Assign Var Expr
   | Goto LineNum
-  -- | Gosub LineNum
+  | Gosub LineNum
   -- | Return
   | Poke Expr Expr
   | For Var0 Expr Expr (Maybe Number)
@@ -127,6 +127,7 @@ mutual
     show (Assign v x) = show v ++ " = " ++ show x
     show (Poke addr dat) = "POKE " ++ show addr ++ ", " ++ show dat
     show (Goto n) = "GOTO " ++ show n
+    show (Gosub n) = "GOSUB " ++ show n
     show (For v from to step) = "FOR " ++ show v ++ " = " ++ show from ++ " TO " ++ show to ++ maybe "" (\x => "STEP " ++ show x) step
     show (Read v) = "READ " ++ show v
     show (Next v) = "NEXT " ++ show v
