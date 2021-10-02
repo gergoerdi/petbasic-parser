@@ -130,6 +130,8 @@ stmt = lexeme $ choice
   , Assign <$> var <* eq <*> expr
   , Goto <$ bits8 0x89 <*> numLit
   , Gosub <$ bits8 0x8d <*> numLit
+  , Return <$ bits8 0x8e
+  , Get <$ bits8 0xa1 <*> var
   , Poke <$ bits8 0x97 <*> expr <* comma <*> expr
   , For <$ bits8 0x81
         <*> var0 <* eq <*> expr <* lexeme (bits8 0xa4) <*> expr
