@@ -86,7 +86,11 @@ data Stmt
   | Rem
 
 readable : (Foldable f) => f Bits8 -> String
-readable = pack . map (chr . cast) . toList
+readable = concat . map toChar . toList
+  where
+    toChar : Bits8 -> String
+    toChar x = if 0x20 <= x && x <= 0x7f then cast . chr . cast $ x
+           else "{" ++ show x ++ "}"
 
 public export
 Show Id where
