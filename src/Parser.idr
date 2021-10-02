@@ -90,13 +90,13 @@ mutual
         , [ Infix (lexeme $ Bin Plus <$ bits8 0xaa) AssocLeft
           , Infix (lexeme $ Bin Minus <$ bits8 0xab) AssocLeft
           ]
-        -- , [ Infix (lexeme $ GEE <$ (bits8 0xb1 *> bits8 0xb2)) AssocNone
-        --   , Infix (lexeme $ GTE <$ bits8 0xb1) AssocNone
-        --   , Infix (lexeme $ EqE <$ bits8 0xb2) AssocNone
-        --   , Infix (lexeme $ NEqE <$ (bits8 0xb3 *> bits8 0xb1)) AssocNone
-        --   , Infix (lexeme $ LEE <$ (bits8 0xb3 *> bits8 0xb2)) AssocNone
-        --   , Infix (lexeme $ LTE <$ bits8 0xb3) AssocNone
-        --   ]
+        , [ Infix (lexeme $ Bin Eq  <$ bits8 0xb2) AssocNone
+          , Infix (lexeme $ Bin NEq <$ (bits8 0xb3 *> bits8 0xb1)) AssocNone
+          , Infix (lexeme $ Bin GE  <$ (bits8 0xb1 *> bits8 0xb2)) AssocNone
+          , Infix (lexeme $ Bin GT  <$ bits8 0xb1) AssocNone
+          , Infix (lexeme $ Bin LE  <$ (bits8 0xb3 *> bits8 0xb2)) AssocNone
+          , Infix (lexeme $ Bin LT  <$ bits8 0xb3) AssocNone
+          ]
         , [ Infix (lexeme $ Bin And <$ bits8 0xaf) AssocLeft
           , Infix (lexeme $ Bin Or <$ bits8 0xb0) AssocLeft
           ]

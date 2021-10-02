@@ -95,8 +95,8 @@ Show Id where
 public export
 Show Var0 where
   show (RealVar nm) = show nm
-  show (IntVar nm) = show nm
-  show (StrVar nm) = show nm
+  show (IntVar nm) = show nm ++ "%"
+  show (StrVar nm) = show nm ++ "$"
 
 public export
 Show Fun where
