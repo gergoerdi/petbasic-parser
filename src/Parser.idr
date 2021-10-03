@@ -53,10 +53,13 @@ numLit {a} = fromDigits <$> lexeme sign <*> lexeme (some digitLit)
     sign = option False $ True <$ bits8 0xab
 
 strLit : Grammar state Bits8 True (List Bits8)
-strLit = lexeme dquote *> manyTill dquote anyBits8
+strLit = lexeme dquote *> manyTill (dquote <|> eol) anyBits8
   where
     dquote : Grammar state Bits8 True ()
     dquote = bits8 0x22
+
+    eol : Grammar state Bits8 False ()
+    eol = ignore $ nextIs "end of line" (== 0x00)
 
 var0 : Grammar state Bits8 True Var0
 var0 = do
