@@ -29,8 +29,8 @@ main = do
     let fn = "pokol.mem"
     buf <- loadImage fn
     let buf = drop 2 buf
-    let buf = let (pre, post) = splitAt (0x0803 + 28285) buf
-              in  pre ++ [0xb2] ++ post
+    let buf = let (pre, post) = splitAt (0x0803 + 28282) buf
+              in  pre ++ [0x99] ++ post
     let buf = drop 0x0803 buf
     case parse (replicateM n line) $ map irrelevantBounds buf of
       Left (err1 ::: errs) => printLn err1 >> printLn errs
