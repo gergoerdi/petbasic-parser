@@ -123,6 +123,7 @@ mutual
         <|> StrLitE <$> strLit
         <|> VarE <$> var
         <|> FunE <$> fun <*> parens (sepBy1 comma expr)
+        <|> FunE <$> (lexeme $ Tab <$ bits8 0xa3) <*> sepBy1 comma expr <* lexeme (bits8 0x29)
         <|> parens expr
 
   var : Grammar state Bits8 True Var
