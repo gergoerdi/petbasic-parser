@@ -78,8 +78,15 @@ mutual
   expr : Grammar state Bits8 True Expr
   expr = expressionParser table term <|> fail "expression"
     where
-      bin : Bits8 -> (a -> a -> b) -> (Grammar state Bits8 True a) -> Grammar state Bits8 True b
-      bin op f tm = f <$> tm <*> (lexeme (bits8 op) *> tm)
+      cmp : Grammar state Bits8 True BinOp
+      cmp = choice
+        [ Eq  <$ bits8 0xb2
+        , NEq <$ bits8 0xb3 <* bits8 0xb1
+        , GE  <$ bits8 0xb1 <* bits8 0xb2
+        , GT  <$ bits8 0xb1
+        , LE  <$ bits8 0xb3 <* bits8 0xb2
+        , LT  <$ bits8 0xb3
+        ]
 
       table : List (List (Op state Bits8 Expr))
       table =
@@ -90,13 +97,7 @@ mutual
         , [ Infix (lexeme $ Bin Plus <$ bits8 0xaa) AssocLeft
           , Infix (lexeme $ Bin Minus <$ bits8 0xab) AssocLeft
           ]
-        , [ Infix (lexeme $ Bin Eq  <$ bits8 0xb2) AssocNone
-          , Infix (lexeme $ Bin NEq <$ (bits8 0xb3 *> bits8 0xb1)) AssocNone
-          , Infix (lexeme $ Bin GE  <$ (bits8 0xb1 *> bits8 0xb2)) AssocNone
-          , Infix (lexeme $ Bin GT  <$ bits8 0xb1) AssocNone
-          , Infix (lexeme $ Bin LE  <$ (bits8 0xb3 *> bits8 0xb2)) AssocNone
-          , Infix (lexeme $ Bin LT  <$ bits8 0xb3) AssocNone
-          ]
+        , [ Infix (Bin <$> lexeme cmp) AssocNone ]
         , [ Infix (lexeme $ Bin And <$ bits8 0xaf) AssocLeft
           , Infix (lexeme $ Bin Or <$ bits8 0xb0) AssocLeft
           ]
