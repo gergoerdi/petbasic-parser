@@ -52,14 +52,14 @@ numLit {a} = fromDigits <$> lexeme sign <*> lexeme (some digitLit)
     sign : Grammar state Bits8 False Bool
     sign = option False $ True <$ bits8 0xab
 
+eol : Grammar state Bits8 False ()
+eol = ignore $ nextIs "end of line" (== 0x00)
+
 strLit : Grammar state Bits8 True (List Bits8)
 strLit = lexeme dquote *> manyTill (dquote <|> eol) anyBits8
   where
     dquote : Grammar state Bits8 True ()
     dquote = bits8 0x22
-
-    eol : Grammar state Bits8 False ()
-    eol = ignore $ nextIs "end of line" (== 0x00)
 
 var0 : Grammar state Bits8 True Var0
 var0 = do
@@ -154,6 +154,8 @@ stmt = lexeme $ choice
   , OnGosub <$ bits8 0x91 <*> expr <* bits8 0x8d <*> sepBy1 comma numLit
   , PrintH <$ bits8 0x98 <*> expr <* comma <*> sepBy1 comma expr
   , InputH <$ bits8 0x84 <*> expr <* comma <*> sepBy1 comma var
+  , End <$ bits8 0x80
+  , Rem <$ bits8 0x8f <* manyTill eol anyBits8
   ]
 
 line : Grammar state Bits8 True (LineNum, List1 Stmt)
