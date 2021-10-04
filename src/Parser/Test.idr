@@ -24,7 +24,7 @@ main : IO ()
 main = do
     n <- getArgs >>= \xs => pure $ case xs of
       [_, x] => cast x
-      _ => 21
+      _ => 1148
 
     let fn = "pokol.mem"
     buf <- loadImage fn
