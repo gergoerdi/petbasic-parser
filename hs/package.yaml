@@ -4,19 +4,12 @@ category: game
 
 dependencies:
   - base
-  - containers
-  - mtl
-  - transformers
-  - monad-loops
   - parsec
   - bytestring
-  - vector
-  - JuicyPixels
-  - binary ^>= 0.8
   
 source-dirs:
   - .
 
 executables:
-  interpreter:
+  parser:
     main: Main.hs
