@@ -33,17 +33,17 @@ data Fun
 
 public export
 data BinOp
-   = Eq
-   | NEq
-   | LT
-   | LE
-   | GT
-   | GE
-   | Plus
-   | Minus
-   | Mul
-   | And
-   | Or
+  = Eq
+  | NEq
+  | LT
+  | LE
+  | GT
+  | GE
+  | Plus
+  | Minus
+  | Mul
+  | And
+  | Or
 
 mutual
   public export
