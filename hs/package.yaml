@@ -1,0 +1,22 @@
+name: pokol
+version: 0.1.0
+category: game
+
+dependencies:
+  - base
+  - containers
+  - mtl
+  - transformers
+  - monad-loops
+  - parsec
+  - bytestring
+  - vector
+  - JuicyPixels
+  - binary ^>= 0.8
+  
+source-dirs:
+  - .
+
+executables:
+  interpreter:
+    main: Main.hs
