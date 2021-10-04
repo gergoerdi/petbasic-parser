@@ -15,4 +15,4 @@ main = do
     buf <- return $ drop 0x0803 buf
     case parse (replicateM 1148 line) "" buf of
         Left err -> print err
-        Right x -> mapM_ print x -- mapM_ (print . fst) x
+        Right x -> mapM_ (print . fst) x
