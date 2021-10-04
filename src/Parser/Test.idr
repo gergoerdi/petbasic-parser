@@ -34,4 +34,4 @@ main = do
     let buf = drop 0x0803 buf
     case parse (replicateM n line) $ map irrelevantBounds buf of
       Left (err1 ::: errs) => printLn err1 >> printLn errs
-      Right (x, rest) => traverse_ printLn x >> printLn (map val $ take 100 rest)
+      Right (x, rest) => traverse_ (printLn . fst) x
