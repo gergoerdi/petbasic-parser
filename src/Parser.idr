@@ -17,7 +17,11 @@ letter : Grammar state Bits8 True Bits8
 letter = terminal "letter" $ \x => toMaybe (0x41 <= x && x <= 0x5a) x
 
 lexeme : {c : Bool} -> Grammar state Bits8 c a -> Grammar state Bits8 c a
-lexeme p = afterMany (bits8 0x20) p
+lexeme {c} p = rewrite (lemma c) in p <* many (bits8 0x20)
+  where
+    lemma : (c : Bool) -> c = c || Delay False
+    lemma {c = True} = Refl
+    lemma {c = False} = Refl
 
 lineNum : Grammar state Bits8 True LineNum
 lineNum = do
