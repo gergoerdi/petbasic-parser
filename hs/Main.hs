@@ -1,3 +1,4 @@
+{-# LANGUAGE Strict, StrictData #-}
 module Main where
 
 import Syntax

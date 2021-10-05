@@ -1,4 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE Strict, StrictData #-}
 module Parser where
 
 import Prelude hiding (LT, GT)

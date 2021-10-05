@@ -1,4 +1,5 @@
 module Syntax where
+{-# LANGUAGE Strict, StrictData #-}
 
 import Data.Word
 
