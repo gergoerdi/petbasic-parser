@@ -18,9 +18,6 @@ public export
 OpTable : Type -> Type -> Type -> Type
 OpTable state k a = List (List (Op state k a))
 
-choice1 : List1 (Grammar state k True a) -> Grammar state k True a
-choice1 (p ::: ps) = p <|> choice ps
-
 public export
 expressionParser :
   OpTable state k a ->
@@ -51,25 +48,38 @@ expressionParser table term = foldl level term table
         parseThese : Grammar state k True a
         parseThese =
           let (lassoc, rassoc, nassoc, pre) = sortedOps
-              parseLeft = do
-                x <- factor
-                fs <- some (flip <$> choice lassoc <*> factor)
-                pure $ foldl (flip ($)) x fs
-              parseRight = case fromList rassoc of
-                Nothing => fail "right-associative operator"
-                Just rassoc => do
-                  fs <- some (factor >>= \x => choice1 rassoc <*> pure x)
-                  y <- factor
-                  pure $ foldr ($) y fs
-              parseNone = case fromList nassoc of
-                Nothing => fail "non-associative operator"
-                Just nassoc => do
+
+              termP : Grammar state k True a
+              prefixP : Grammar state k False (a -> a)
+              termP = do
+                  f <- prefixP
                   x <- factor
-                  f <- choice1 nassoc
-                  y <- factor
+                  pure $ f x
+
+              prefixP = choice pre <|> pure id
+
+              rassocP : a -> Grammar state k True a
+              rassocP1 : a -> Grammar state k False a
+              rassocP x = do
+                  f <- choice rassoc
+                  y <- termP >>= rassocP1
                   pure $ f x y
-              parsePre = case fromList pre of
-                Nothing => fail "prefix operator"
-                Just pre => do
-                  choice1 pre <*> factor
-          in parseLeft <|> parseRight <|> parseNone <|> parsePre
+              rassocP1 x = rassocP x <|> pure x
+
+              lassocP : a -> Grammar state k True a
+              lassocP1 : a -> Grammar state k False a
+              lassocP x = do
+                  f <- choice lassoc
+                  y <- termP
+                  lassocP1 $ f x y
+              lassocP1 x = lassocP x <|> pure x
+
+              nassocP : a -> Grammar state k True a
+              nassocP x = do
+                  f <- choice nassoc
+                  y <- termP
+                  pure $ f x y
+
+          in do
+              x <- termP
+              rassocP x <|> lassocP x <|> nassocP x <|> pure x
