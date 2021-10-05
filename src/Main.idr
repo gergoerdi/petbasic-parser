@@ -26,7 +26,15 @@ loadGame = do
       Left errs => assert_total $ idris_crash "parse"
       Right (x, rest) => pure x
 
+zipWithNext : (a -> Maybe a -> b) -> List a -> List b
+zipWithNext f [] = []
+zipWithNext f (x :: []) = [f x Nothing]
+zipWithNext f (x :: xs@(x' :: _)) = f x (Just x') :: zipWithNext f xs
+
 main : IO ()
 main = do
     lines <- loadGame
-    traverse_ printLn lines
+    let lines = sortBy (comparing fst) lines
+    let lineMap = zipWithNext (\ (lineNum, line), nextLine => (lineNum, (line, fst <$> nextLine))) lines
+
+    traverse_ printLn lineMap
