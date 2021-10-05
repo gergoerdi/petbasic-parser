@@ -162,6 +162,7 @@ stmt = lexeme $ choice
   , Rem <$ bits8 0x8f <* manyTill eol anyBits8
   ]
 
+export
 line : Grammar state Bits8 True (LineNum, List1 Stmt)
 line = (,) <$> lineNum <*> sepBy1 colon stmt <* bits8 0x00 <* anyBits8 <* anyBits8
 

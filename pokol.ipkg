@@ -4,5 +4,5 @@ depends = base >= 0.5.1, contrib >= 0.5.1
 
 sourcedir = "src"
 
-executable = "pokol-parser"
-main = Parser.Test
+executable = "pokol"
+main = Main
