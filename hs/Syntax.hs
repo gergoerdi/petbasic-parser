@@ -1,17 +1,11 @@
-module Syntax where
 {-# LANGUAGE Strict, StrictData #-}
+module Syntax where
 
-import Data.Word
+import Parser.Compat
 
-type Bits8 = Word8
-
-type Bits16 = Word16
 type LineNum = Bits16
 
 type Number = Double
-type List = ([])
-type List1 = List
-
 data Id = MkId (List1 Bits8)
   deriving (Show)
 

@@ -6,17 +6,14 @@ import Prelude hiding (LT, GT)
 import Syntax
 import Text.Parsec hiding (digit, letter)
 import Text.Parsec.Pos
-import Text.Parsec.Expr
+-- import Text.Parsec.Expr
+import Parser.Compat
+import Parser.Expression
 import Control.Monad
 import Text.Printf
 
-type Parser = Parsec [Bits8] ()
-
 terminal :: String -> (Bits8 -> Maybe a) -> Parser a
 terminal s f = token (\_ -> s) (\_ -> initialPos "") f
-
-some :: Parser a -> Parser (List1 a)
-some = many1
 
 anyBits8 :: Parser Bits8
 anyBits8 = terminal "" Just
@@ -88,7 +85,7 @@ var0 = do
       <|> pure RealVar
 
 expr :: Parser Expr
-expr = buildExpressionParser table term <|> fail "expression"
+expr = expressionParser table term <|> fail "expression"
   where
     cmp :: Parser BinOp
     cmp = choice
