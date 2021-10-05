@@ -1,5 +1,6 @@
 -- due to Debug.Trace
 {-# LANGUAGE Trustworthy #-}
+{-# LANGUAGE Strict, StrictData #-}
 
 -----------------------------------------------------------------------------
 -- |

@@ -1,6 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE Safe #-}
+{-# LANGUAGE Strict, StrictData #-}
 
 -----------------------------------------------------------------------------
 -- |

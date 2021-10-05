@@ -10,6 +10,8 @@
 {-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE UndecidableInstances #-}
 
+{-# LANGUAGE Strict, StrictData #-}
+
 {-# OPTIONS_GHC -fno-warn-name-shadowing #-}
 
 -----------------------------------------------------------------------------

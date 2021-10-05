@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP, FlexibleContexts, Safe #-}
+{-# LANGUAGE Strict, StrictData #-}
 
 -----------------------------------------------------------------------------
 -- |

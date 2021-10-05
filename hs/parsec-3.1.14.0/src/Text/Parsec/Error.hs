@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE Safe #-}
+{-# LANGUAGE Strict, StrictData #-}
 
 -----------------------------------------------------------------------------
 -- |
