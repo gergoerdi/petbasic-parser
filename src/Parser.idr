@@ -86,14 +86,13 @@ mutual
   expr = expressionParser table term <|> fail "expression"
     where
       cmp : Grammar state Bits8 True BinOp
-      cmp = choice
-        [ Eq  <$ bits8 0xb2 <* commit
-        , NEq <$ bits8 0xb3 <* bits8 0xb1 <* commit
-        , LE  <$ bits8 0xb3 <* bits8 0xb2 <* commit
-        , LT  <$ bits8 0xb3
-        , GE  <$ bits8 0xb1 <* bits8 0xb2 <* commit
-        , GT  <$ bits8 0xb1
-        ]
+      cmp =
+            Eq  <$ bits8 0xb2 <* commit
+        <|> NEq <$ bits8 0xb3 <* bits8 0xb1 <* commit
+        <|> LE  <$ bits8 0xb3 <* bits8 0xb2 <* commit
+        <|> LT  <$ bits8 0xb3
+        <|> GE  <$ bits8 0xb1 <* bits8 0xb2 <* commit
+        <|> GT  <$ bits8 0xb1
 
       table : List (List (Op state Bits8 Expr))
       table =
@@ -111,15 +110,14 @@ mutual
         ]
 
       fun : Grammar state Bits8 True Fun
-      fun = lexeme $ choice
-        [ Peek    <$ bits8 0xc2 <* commit
-        , IntFun  <$ bits8 0xb5 <* commit
-        , Rnd     <$ bits8 0xbb <* commit
-        , Chr     <$ bits8 0xc7 <* commit
-        , LeftStr <$ bits8 0xc8 <* commit
-        , Val     <$ bits8 0xc5 <* commit
-        , Asc     <$ bits8 0xc6 <* commit
-        ]
+      fun = lexeme $
+            Peek    <$ bits8 0xc2 <* commit
+        <|> IntFun  <$ bits8 0xb5 <* commit
+        <|> Rnd     <$ bits8 0xbb <* commit
+        <|> Chr     <$ bits8 0xc7 <* commit
+        <|> LeftStr <$ bits8 0xc8 <* commit
+        <|> Val     <$ bits8 0xc5 <* commit
+        <|> Asc     <$ bits8 0xc6 <* commit
 
       term : Grammar state Bits8 True Expr
       term =
@@ -134,33 +132,32 @@ mutual
   var = MkVar <$> var0 <*> (parens (toList <$> sepBy1 comma expr) <|> pure [])
 
 stmt : Grammar state Bits8 True Stmt
-stmt = lexeme $ choice
-  [ If <$ bits8 0x8b <* commit <*> expr <* lexeme (bits8 0xa7) <*> (stmt <|> (Goto <$> numLit))
-  , Assign <$> var <* eq <*> expr
-  , Goto <$ bits8 0x89 <* commit <*> numLit
-  , Gosub <$ bits8 0x8d <* commit <*> numLit
-  , Return <$ bits8 0x8e <* commit
-  , Get <$ bits8 0xa1 <* commit <*> var
-  , Poke <$ bits8 0x97 <* commit <*> expr <* comma <*> expr
-  , For <$ bits8 0x81 <* commit
+stmt = lexeme $
+      If <$ bits8 0x8b <* commit <*> expr <* lexeme (bits8 0xa7) <*> (stmt <|> (Goto <$> numLit))
+  <|> Assign <$> var <* eq <*> expr
+  <|> Goto <$ bits8 0x89 <* commit <*> numLit
+  <|> Gosub <$ bits8 0x8d <* commit <*> numLit
+  <|> Return <$ bits8 0x8e <* commit
+  <|> Get <$ bits8 0xa1 <* commit <*> var
+  <|> Poke <$ bits8 0x97 <* commit <*> expr <* comma <*> expr
+  <|> For <$ bits8 0x81 <* commit
         <*> var0 <* eq <*> expr <* lexeme (bits8 0xa4) <*> expr
         <*> lexeme (optional $ bits8 0xa9 *> numLit)
-  , Next <$ bits8 0x82 <* commit <*> var0
-  , Print <$ bits8 0x99 <* commit <*> many expr <*> (maybe True (const False) <$> optional semi)
-  , Clr <$ bits8 0x9c <* commit
-  , Run <$ bits8 0x8a <* commit
-  , Sys <$ bits8 0x9e <* commit <*> numLit
-  , Read <$ bits8 0x87 <* commit <*> var
-  , Data <$ bits8 0x83 <* commit <*> sepBy1 comma numLit
-  , Open <$ bits8 0x9f <* commit <*> expr <* comma <*> expr <* comma <*> expr <* comma <*> expr
-  , Close <$ bits8 0xa0 <* commit <*> expr
-  , OnGoto <$ bits8 0x91 <* commit <*> expr <* bits8 0x89 <* commit <*> sepBy1 comma numLit
-  , OnGosub <$ bits8 0x91 <* commit <*> expr <* bits8 0x8d <* commit <*> sepBy1 comma numLit
-  , PrintH <$ bits8 0x98 <* commit <*> expr <* comma <*> sepBy1 comma expr
-  , InputH <$ bits8 0x84 <* commit <*> expr <* comma <*> sepBy1 comma var
-  , End <$ bits8 0x80 <* commit
-  , Rem <$ bits8 0x8f <* commit <* manyTill eol anyBits8
-  ]
+  <|> Next <$ bits8 0x82 <* commit <*> var0
+  <|> Print <$ bits8 0x99 <* commit <*> many expr <*> (maybe True (const False) <$> optional semi)
+  <|> Clr <$ bits8 0x9c <* commit
+  <|> Run <$ bits8 0x8a <* commit
+  <|> Sys <$ bits8 0x9e <* commit <*> numLit
+  <|> Read <$ bits8 0x87 <* commit <*> var
+  <|> Data <$ bits8 0x83 <* commit <*> sepBy1 comma numLit
+  <|> Open <$ bits8 0x9f <* commit <*> expr <* comma <*> expr <* comma <*> expr <* comma <*> expr
+  <|> Close <$ bits8 0xa0 <* commit <*> expr
+  <|> OnGoto <$ bits8 0x91 <* commit <*> expr <* bits8 0x89 <* commit <*> sepBy1 comma numLit
+  <|> OnGosub <$ bits8 0x91 <* commit <*> expr <* bits8 0x8d <* commit <*> sepBy1 comma numLit
+  <|> PrintH <$ bits8 0x98 <* commit <*> expr <* comma <*> sepBy1 comma expr
+  <|> InputH <$ bits8 0x84 <* commit <*> expr <* comma <*> sepBy1 comma var
+  <|> End <$ bits8 0x80 <* commit
+  <|> Rem <$ bits8 0x8f <* commit <* manyTill eol anyBits8
 
 line : Grammar state Bits8 True (LineNum, List1 Stmt)
 line = (,) <$> lineNum <*> sepBy1 colon stmt <* bits8 0x00 <* anyBits8 <* anyBits8
