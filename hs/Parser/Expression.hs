@@ -35,25 +35,32 @@ expressionParser table term = foldl level term table
 
         parseThese =
           let (lassoc, rassoc, nassoc, pre) = sortedOps
-              parseLeft = do
-                x <- factor
-                fs <- some (flip <$> choice lassoc <*> factor)
-                pure $ foldl (flip ($)) x fs
-              parseRight = case rassoc of
-                  [] -> fail "right-associative operator"
-                  (r:rs) -> do
-                      fs <- some (factor >>= \x -> choice1 r rs <*> pure x)
-                      y <- factor
-                      pure $ foldr ($) y fs
-              parseNone = case nassoc of
-                  [] -> fail "non-associative operator"
-                  (n:ns) -> do
-                      x <- factor
-                      f <- choice1 n ns
-                      y <- factor
-                      pure $ f x y
-              parsePre = case pre of
-                  [] -> fail "prefix operator"
-                  (p:ps) -> do
-                      choice1 p ps <*> factor
-          in try parseLeft <|> try parseRight <|> try parseNone <|> parsePre
+
+              termP :: Parser a
+              termP = do
+                  pre <- prefixP
+                  x <- factor
+                  pure $ pre x
+
+              prefixP = choice pre <|> pure id
+
+              rassocP x = do
+                  f <- choice rassoc
+                  y <- termP >>= rassocP1
+                  pure $ f x y
+              rassocP1 x = rassocP x <|> pure x
+
+              lassocP x = do
+                  f <- choice lassoc
+                  y <- termP
+                  lassocP1 $ f x y
+              lassocP1 x = lassocP x <|> pure x
+
+              nassocP x = do
+                  f <- choice nassoc
+                  y <- termP
+                  pure $ f x y
+
+          in do
+              x <- termP
+              rassocP x <|> lassocP x <|> nassocP x <|> pure x
