@@ -31,11 +31,6 @@ expressionParser table term = foldl level term table
           Infix p AssocNone  -> (lassoc, rassoc, p:nassoc, pre)
           Prefix p           -> (lassoc, rassoc, nassoc, p:pre)
 
-        -- sortedOps :: ( [Parsec k state (a -> a -> a)]
-        --              , [Parsec k state (a -> a -> a)]
-        --              , [Parsec k state (a -> a -> a)]
-        --              , [Parsec k state (a -> a)]
-        --              )
         sortedOps = foldr separate ([], [], [], []) ops
 
         parseThese =
@@ -61,4 +56,4 @@ expressionParser table term = foldl level term table
                   [] -> fail "prefix operator"
                   (p:ps) -> do
                       choice1 p ps <*> factor
-          in parseLeft <|> parseRight <|> parseNone <|> parsePre
+          in try parseLeft <|> try parseRight <|> try parseNone <|> parsePre

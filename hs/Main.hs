@@ -14,6 +14,6 @@ main = do
     buf <- return $ let (pre, post) = splitAt (0x0803 + 28282) buf
                     in  pre ++ [0x99] ++ post
     buf <- return $ drop 0x0803 buf
-    case parse (replicateM (const 1 1148) line) "" buf of
+    case parse (replicateM 1148 line) "" buf of
         Left err -> print err
         Right x -> mapM_ (print . fst) x
