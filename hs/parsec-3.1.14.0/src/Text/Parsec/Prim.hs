@@ -688,9 +688,9 @@ manyAccum acc p =
             unParser p s'
               (seq xs $ walk $ acc x xs)  -- consumed-ok
               cerr                        -- consumed-err
-              manyErr                     -- empty-ok
+              (\_ -> manyErr)                     -- empty-ok
               (\e -> cok (acc x xs) s' e) -- empty-err
-    in unParser p s (walk []) cerr manyErr (\e -> eok [] s e)
+    in unParser p s (walk []) cerr (\_ -> manyErr) (\e -> eok [] s e)
 
 manyErr :: a
 manyErr = error "Text.ParserCombinators.Parsec.Prim.many: combinator 'many' is applied to a parser that accepts an empty string."
