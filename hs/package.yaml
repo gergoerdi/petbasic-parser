@@ -4,11 +4,13 @@ category: game
 
 dependencies:
   - base
-  - parsec
   - bytestring
+  - text
+  - mtl
   
 source-dirs:
   - .
+  - parsec-3.1.14.0/src
 
 executables:
   parser:
