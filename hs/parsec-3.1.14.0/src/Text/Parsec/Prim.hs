@@ -106,11 +106,6 @@ import Control.Monad.Trans
 import Control.Monad.Identity hiding (sequence)
 import qualified Control.Monad.Fail as Fail
 
-import Control.Monad.Reader.Class
-import Control.Monad.State.Class
-import Control.Monad.Cont.Class
-import Control.Monad.Error.Class
-
 import Text.Parsec.Pos
 import Text.Parsec.Error
 
@@ -280,32 +275,6 @@ instance Monad (ParsecT s u m) where
 -- | @since 3.1.12.0
 instance Fail.MonadFail (ParsecT s u m) where
     fail = parserFail
-
-instance (MonadIO m) => MonadIO (ParsecT s u m) where
-    liftIO = lift . liftIO
-
-instance (MonadReader r m) => MonadReader r (ParsecT s u m) where
-    ask = lift ask
-    local f p = mkPT $ \s -> local f (runParsecT p s)
-
--- I'm presuming the user might want a separate, non-backtracking
--- state aside from the Parsec user state.
-instance (MonadState s m) => MonadState s (ParsecT s' u m) where
-    get = lift get
-    put = lift . put
-
-instance (MonadCont m) => MonadCont (ParsecT s u m) where
-    callCC f = mkPT $ \s ->
-          callCC $ \c ->
-          runParsecT (f (\a -> mkPT $ \s' -> c (pack s' a))) s
-
-     where pack s a= Empty $ return (Ok a s (unknownError s))
-
-instance (MonadError e m) => MonadError e (ParsecT s u m) where
-    throwError = lift . throwError
-    p `catchError` h = mkPT $ \s ->
-        runParsecT p s `catchError` \e ->
-            runParsecT (h e) s
 
 parserReturn :: a -> ParsecT s u m a
 parserReturn x
