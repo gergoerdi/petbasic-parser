@@ -3,6 +3,7 @@ module Interpreter
 import Syntax
 import Data.SortedMap
 import Data.List1
+import Data.Maybe
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Cont
@@ -13,6 +14,11 @@ data Value
     = BoolVal Bool
     | NumVal Double
     | StrVal String
+
+implementation Show Value where
+  show (BoolVal b) = show b
+  show (NumVal d) = show d
+  show (StrVal s) = show s
 
 mutual
   record S (r : Type) where
@@ -90,10 +96,12 @@ mutual
 setVar : V -> Value -> BASIC r ()
 setVar var value = modify $ record { vars $= SortedMap.insert var value }
 
+execLine : BASIC r ()
+
 goto : LineNum -> BASIC r ()
 goto lineNum = do
   modify $ record { lineNum = Just lineNum }
-  ?execLine
+  execLine
 
 returnSub : BASIC r ()
 returnSub = do
@@ -104,3 +112,40 @@ returnSub = do
 
 abortLine : BASIC r ()
 abortLine = join $ asks abortLineCont
+
+partial exec : Stmt -> BASIC r ()
+exec (If cond thn) = do
+    b <- isTrue <$> eval cond
+    unless b abortLine
+    exec thn
+exec (Assign v e) = do
+    v <- var v
+    val <- eval e
+    setVar v val
+exec (Poke addr e) = do
+    addr <- eval addr
+    val <- eval e
+    liftIO $ printLn ("Poke", addr, val)
+exec (Goto line) = goto line
+exec (Gosub line) = callCC $ \k => do
+    modify $ record { returnConts $= (k () ::) }
+    goto line
+exec Return = returnSub
+exec (For v0 from to mstep) = do
+    let v = MkV v0 []
+        step = fromMaybe 1 mstep
+        decreasing = step < 0
+        -- keepGoing (NumVal x) (NumVal y) = if decreasing then x >= y else x <= y
+    setVar v =<< eval from
+    let next, loop : BASIC r ()
+        next = do
+            to <- eval to
+            current <- getVar v
+            let new = current `plus` NumVal step
+            setVar v new
+            if ?keepGoing new to then loop else modify $ record { nextConts $= tail }
+        loop = modify $ record { nextConts $= (next::) }
+    loop
+exec stmt = do
+    lineNum <- gets lineNum
+    assert_total $ idris_crash $ show (lineNum, stmt)
