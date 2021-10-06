@@ -24,3 +24,7 @@ implementation Monad (ContT r m) where
 public export
 implementation MonadTrans (ContT r) where
   lift m = CT (m >>=)
+
+public export
+implementation HasIO m => HasIO (ContT r m) where
+  liftIO = lift . liftIO
