@@ -1,5 +1,6 @@
 import Syntax
 import Parser
+import Interpreter
 
 import Text.Parser
 import Data.Buffer
