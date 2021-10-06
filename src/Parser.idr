@@ -83,7 +83,7 @@ var0 = do
 
 mutual
   expr : Grammar state Bits8 True Expr
-  expr = expressionParser table term <|> fail "expression"
+  expr = buildExpressionParser table term <|> fail "expression"
     where
       cmp : Grammar state Bits8 True BinOp
       cmp = choice

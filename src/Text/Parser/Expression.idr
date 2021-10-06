@@ -12,18 +12,19 @@ data Assoc
 public export
 data Op state k a
   = Prefix (Grammar state k True (a -> a))
+  | Postfix (Grammar state k True (a -> a))
   | Infix (Grammar state k True (a -> a -> a)) Assoc
 
 public export
-OpTable : Type -> Type -> Type -> Type
-OpTable state k a = List (List (Op state k a))
+OperatorTable : Type -> Type -> Type -> Type
+OperatorTable state k a = List (List (Op state k a))
 
 public export
-expressionParser :
-  OpTable state k a ->
+buildExpressionParser :
+  OperatorTable state k a ->
   Grammar state k True a ->
   Grammar state k True a
-expressionParser table term = foldl level term table
+buildExpressionParser table term = foldl level term table
   where
     level : Grammar state k True a -> List (Op state k a) -> Grammar state k True a
     level factor ops = parseThese <|> factor
@@ -33,30 +34,34 @@ expressionParser table term = foldl level term table
         UnOp = Grammar state k True (a -> a)
 
         0 SortedOps : Type
-        SortedOps = (List BinOp, List BinOp, List BinOp, List UnOp)
+        SortedOps = (List BinOp, List BinOp, List BinOp, List UnOp, List UnOp)
 
         separate : Op state k a -> SortedOps -> SortedOps
-        separate op (lassoc, rassoc, nassoc, pre) = case op of
-          Infix p AssocLeft  => (p::lassoc, rassoc, nassoc, pre)
-          Infix p AssocRight => (lassoc, p::rassoc, nassoc, pre)
-          Infix p AssocNone  => (lassoc, rassoc, p::nassoc, pre)
-          Prefix p           => (lassoc, rassoc, nassoc, p::pre)
+        separate op (lassoc, rassoc, nassoc, pre, post) = case op of
+          Infix p AssocLeft  => (p::lassoc, rassoc, nassoc, pre, post)
+          Infix p AssocRight => (lassoc, p::rassoc, nassoc, pre, post)
+          Infix p AssocNone  => (lassoc, rassoc, p::nassoc, pre, post)
+          Prefix p           => (lassoc, rassoc, nassoc, p::pre, post)
+          Postfix p          => (lassoc, rassoc, nassoc, pre, p::post)
 
         sortedOps : SortedOps
-        sortedOps = foldr separate ([], [], [], []) ops
+        sortedOps = foldr separate ([], [], [], [], []) ops
 
         parseThese : Grammar state k True a
         parseThese =
-          let (lassoc, rassoc, nassoc, pre) = sortedOps
+          let (lassoc, rassoc, nassoc, pre, post) = sortedOps
 
               termP : Grammar state k True a
               prefixP : Grammar state k False (a -> a)
+              postfixP : Grammar state k False (a -> a)
               termP = do
                   f <- prefixP
                   x <- factor
-                  pure $ f x
+                  g <- postfixP
+                  pure $ g (f x)
 
               prefixP = choice pre <|> pure id
+              postfixP = choice post <|> pure id
 
               rassocP : a -> Grammar state k True a
               rassocP1 : a -> Grammar state k False a
