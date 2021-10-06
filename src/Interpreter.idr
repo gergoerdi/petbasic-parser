@@ -110,6 +110,9 @@ returnSub = do
     modify $ record { returnConts = ks }
     k
 
+partial unsafeTail : List a -> List a
+unsafeTail (x::xs) = xs
+
 abortLine : BASIC r ()
 abortLine = join $ asks abortLineCont
 
@@ -133,9 +136,6 @@ exec (Gosub line) = callCC $ \k => do
 exec Return = returnSub
 exec (For v0 from to mstep) = do
     let v = MkV v0 []
-        step = fromMaybe 1 mstep
-        decreasing = step < 0
-        -- keepGoing (NumVal x) (NumVal y) = if decreasing then x >= y else x <= y
     setVar v =<< eval from
     let next, loop : BASIC r ()
         next = do
@@ -143,9 +143,18 @@ exec (For v0 from to mstep) = do
             current <- getVar v
             let new = current `plus` NumVal step
             setVar v new
-            if ?keepGoing new to then loop else modify $ record { nextConts $= tail }
+            if keepGoing new to then loop else modify $ record { nextConts $= unsafeTail }
         loop = modify $ record { nextConts $= (next::) }
     loop
+  where
+    step : Number
+    step = fromMaybe 1 mstep
+
+    decreasing : Bool
+    decreasing = step < 0
+
+    keepGoing : Value -> Value -> Bool
+    keepGoing (NumVal x) (NumVal y) = if decreasing then x >= y else x <= y
 exec stmt = do
     lineNum <- gets lineNum
     assert_total $ idris_crash $ show (lineNum, stmt)
