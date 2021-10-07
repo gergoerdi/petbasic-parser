@@ -2,6 +2,7 @@ module Interpreter
 
 import Syntax
 import Data.SortedMap
+import Data.List
 import Data.List1
 import Data.Maybe
 import Control.Monad.Reader
@@ -135,6 +136,16 @@ abortLine = join $ asks abortLineCont
 sanitizeLine : String -> String
 sanitizeLine = id
 
+total index1OrLast : Nat -> List1 a -> a
+index1OrLast n (x ::: xs) = case n of
+  Z => x
+  S n => go n x xs
+  where
+    go : Nat -> a -> List a -> a
+    go _     x []        = x
+    go Z     _ (x::xs)   = x
+    go (S n) _ (x :: xs) = go n x xs
+
 partial exec : Stmt -> BASIC r ()
 exec (If cond thn) = do
     b <- isTrue <$> eval cond
@@ -161,6 +172,10 @@ exec (Print ss newLine) = do
     --     (c:str) | ord c == 158 => liftIO $ putStr $ "MSG: " <> sanitizeLine str
         _ =>  modify $ record { actions $= (++ [sanitizeLine str]) }
     when newLine $ liftIO $ putStrLn ""
+exec (OnGoto e lines) = do
+    (NumVal val) <- eval e
+    let line = index1OrLast (cast . (\x => x - 1) . floor $ val) lines
+    goto line
 exec (For v0 from to mstep) = do
     let v = MkV v0 []
     setVar v =<< eval from
@@ -235,9 +250,8 @@ execLine = do
                 returnSub
             10455 => do
                 input
+                -- error "done"
                 returnSub
-            --     -- error "done"
-            --     returnSub
             10640 => do
                 -- error "done"
                 returnSub
