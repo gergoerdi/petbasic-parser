@@ -7,6 +7,7 @@ import Data.Maybe
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Cont
+import Data.String
 
 data V = MkV Var0 (List Int16)
 
@@ -27,6 +28,7 @@ implementation Show Value where
   show (StrVal s) = show s
 
 mutual
+  public export
   record S (r : Type) where
     constructor MkS
     lineNum : Maybe LineNum
@@ -35,6 +37,7 @@ mutual
     nextConts : List (BASIC r ())
     actions : List String
 
+  public export
   record R (r : Type) where
     constructor MkR
     lineMap : SortedMap LineNum (List1 Stmt, Maybe LineNum)
@@ -102,7 +105,8 @@ mutual
 setVar : V -> Value -> BASIC r ()
 setVar var value = modify $ record { vars $= SortedMap.insert var value }
 
-execLine : BASIC r ()
+export
+partial execLine : BASIC r ()
 
 goto : LineNum -> BASIC r ()
 goto lineNum = do
@@ -164,3 +168,29 @@ exec (For v0 from to mstep) = do
 exec stmt = do
     lineNum <- gets lineNum
     assert_total $ idris_crash $ show (lineNum, stmt)
+
+zipWithNext : (a -> Maybe a -> b) -> List a -> List b
+zipWithNext f [] = []
+zipWithNext f (x :: []) = [f x Nothing]
+zipWithNext f (x :: xs@(x' :: _)) = f x (Just x') :: zipWithNext f xs
+
+export
+runBASIC : List (LineNum, List1 Stmt) -> BASIC a a -> IO a
+runBASIC lines act = do
+    let s = MkS
+            { lineNum = Just 1805
+            , vars = SortedMap.empty
+            , returnConts = []
+            , nextConts = []
+            , actions = []
+            }
+
+    let nextLines = zipWithNext (\ (lineNum, line), nextLine => (lineNum, (line, fst <$> nextLine))) lines
+    let lineMap = SortedMap.fromList nextLines
+
+    let r0 = MkR
+            { lineMap = lineMap
+            , abortLineCont = pure ()
+            }
+
+    runContT (evalStateT s $ runReaderT r0 $ act) pure
