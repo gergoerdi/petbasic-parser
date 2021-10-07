@@ -27,6 +27,12 @@ implementation Show Value where
   show (NumVal d) = show d
   show (StrVal s) = show s
 
+implementation Eq Value where
+  BoolVal b == BoolVal b' = b == b'
+  NumVal n == NumVal n' = n == n'
+  StrVal s == StrVal s' = s == s'
+  _ == _ = False
+
 mutual
   public export
   record S (r : Type) where
@@ -82,7 +88,7 @@ mutual
   eval (VarE v) = getVar =<< var v
   eval (NumLitE n) = pure $ NumVal n
   eval (StrLitE n) = pure $ StrVal $ pack . map (chr . cast) $ n
-  -- eval (Bin Eq x y) = BoolVal <$> ((==) <$> eval x <*> eval y)
+  eval (Bin Eq x y) = BoolVal <$> ((==) <$> eval x <*> eval y)
   eval (Bin Plus x y) = plus <$> eval x <*> eval y
   eval (Bin And x y) = do
     v1 <- isTrue <$> eval x
