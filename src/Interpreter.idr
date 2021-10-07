@@ -176,7 +176,7 @@ exec (Print ss newLine) = do
     when newLine $ liftIO $ putStrLn ""
 exec (OnGoto e lines) = do
     (NumVal val) <- eval e
-    let line = index1OrLast (cast . (\x => x - 1) . floor $ val) lines
+    let line = index1OrLast (cast $ val - 1) lines
     goto line
 exec (For v0 from to mstep) = do
     let v = MkV v0 []
@@ -203,26 +203,42 @@ exec stmt = do
     lineNum <- gets lineNum
     assert_total $ idris_crash $ show (lineNum, stmt)
 
+numberedFrom : Nat -> List a -> List (Nat, a)
+numberedFrom n [] = []
+numberedFrom n (x::xs) = (n, x) :: numberedFrom (S n) xs
+
 numbered : List a -> List (Nat, a)
-numbered = go 0
-  where
-    go : Nat -> List a -> List (Nat, a)
-    go n [] = []
-    go n (x::xs) = (n, x) :: go (S n) xs
+numbered = numberedFrom 0
 
 printActions : (HasIO io) => List String -> io ()
-printActions actions = for_ (numbered actions) $ \(i, s) => do
+printActions actions = for_ (numberedFrom 1 actions) $ \(i, s) => do
   print i
-  print " "
+  putStr " "
   putStrLn s
 
 execLine = do
-    -- let input : BASIC r ()
     let input : BASIC r ()
         input = do
             s <- the (S r) <$> get
             printActions $ actions s
-            -- putStr "> "
+            putStr "> "
+
+            let move : Number -> BASIC r ()
+                move = \dir => do
+                    liftIO $ putStrLn $ unwords ["MOVE ", show dir]
+                    setVar (MkV (RealVar . MkId $ map cast $ 'M' ::: ['H']) []) $ NumVal 2
+                    setVar (MkV (RealVar . MkId $ map cast $ 'Z' ::: []) []) $ NumVal dir
+                action : Number -> BASIC r ()
+                action = \sel => do
+                    liftIO $ putStrLn $ unwords ["DO ", show sel]
+                    setVar (MkV (RealVar . MkId $ map cast $ 'M' ::: ['H']) []) $ NumVal 1
+                    setVar (MkV (RealVar . MkId $ map cast $ 'M' ::: ['A']) []) $ NumVal sel
+            s <- toLower <$> liftIO getLine
+            case words s of
+                ["do", n] => action $ cast n
+                ["go", n] => move $ cast n
+                _ => input
+            pure ()
 
     s <- the (S r) <$> get
     r <- the (R r) <$> ask
