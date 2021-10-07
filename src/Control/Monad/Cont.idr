@@ -23,4 +23,4 @@ implementation MonadCont m => MonadCont (StateT s m) where
     ST $ \s =>
     callCC $ \k =>
     runStateT s $
-    f $ \x => ST $ \_ => k (s, x)
+    f $ \x => ST $ \s' => k (s', x)
