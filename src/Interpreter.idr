@@ -15,6 +15,9 @@ data V = MkV Var0 (List Int16)
 implementation Eq V where
     MkV v is == MkV v' is' = v == v' && is == is'
 
+mkV : (Id -> Var0) -> (s : String) -> {auto 0 ok : NonEmpty (unpack s) } -> List Int16 -> V
+mkV con nm is = MkV (con . MkId $ map cast $ toList1 (unpack nm)) is
+
 implementation Ord V where
     compare (MkV v is) (MkV v' is') = compare v v' <+> compare is is'
 
@@ -229,13 +232,13 @@ execLine = do
             let move : Number -> BASIC r ()
                 move = \dir => do
                     liftIO $ putStrLn $ unwords ["MOVE ", show dir]
-                    setVar (MkV (RealVar . MkId $ map cast $ 'M' ::: ['H']) []) $ NumVal 2
-                    setVar (MkV (RealVar . MkId $ map cast $ 'Z' ::: []) []) $ NumVal dir
+                    setVar (mkV RealVar "MH" []) $ NumVal 2
+                    setVar (mkV RealVar "Z" []) $ NumVal dir
                 action : Number -> BASIC r ()
                 action = \sel => do
                     liftIO $ putStrLn $ unwords ["DO ", show sel]
-                    setVar (MkV (RealVar . MkId $ map cast $ 'M' ::: ['H']) []) $ NumVal 1
-                    setVar (MkV (RealVar . MkId $ map cast $ 'M' ::: ['A']) []) $ NumVal sel
+                    setVar (mkV RealVar "MH" []) $ NumVal 1
+                    setVar (mkV RealVar "MA" []) $ NumVal sel
             s <- toLower <$> liftIO getLine
             case words s of
                 ["do", n] => action $ cast n
@@ -266,9 +269,9 @@ execLine = do
             9970 => do
                 goto 10020
             10020 => do
-                text <- getVar $ MkV (StrVar . MkId $ map cast $ 'T' ::: []) []
-                ab <- getVar $ MkV (RealVar . MkId $ map cast $ 'A' ::: ['B']) []
-                fb <- getVar $ MkV (RealVar . MkId $ map cast $ 'F' ::: ['B']) []
+                text <- getVar $ mkV StrVar "T" []
+                ab <- getVar $ mkV RealVar "AB" []
+                fb <- getVar $ mkV RealVar "FB" []
                 let pict = pack [chr (cast . floor $ v) | NumVal v <- [ab, fb]]
                 liftIO $ putStrLn $ unwords ["PICTURE", pict]
                 -- liftIO $ do
