@@ -198,6 +198,53 @@ execLine = do
     for_ (lineNum s) $ \lineNum => do
         -- liftIO $ print lineNum
         case lineNum of
+            132 => do
+                -- liftIO $ mapM_ putStrLn actions
+                idris_crash "DIE"
+            3610 => do
+                liftIO $ putStrLn "PAUSE"
+                goto 3620
+            9015 => do
+                liftIO $ putStrLn "CLRSCR"
+                returnSub
+            9600 => do
+                liftIO $ putStrLn "copy protection"
+                returnSub
+            9790 => do
+                liftIO $ putStrLn "PAUSE"
+                returnSub
+            9970 => do
+                goto 10020
+            10020 => do
+                text <- getVar $ MkV (StrVar . MkId $ map cast $ 'T' ::: []) []
+                ab <- getVar $ MkV (RealVar . MkId $ map cast $ 'A' ::: ['B']) []
+                fb <- getVar $ MkV (RealVar . MkId $ map cast $ 'F' ::: ['B']) []
+                let pict = pack [chr (cast . floor $ v) | NumVal v <- [ab, fb]]
+                liftIO $ putStrLn $ unwords ["PICTURE", pict]
+                -- liftIO $ do
+                --     let StrVal s = text
+                --         textFile = "disk/" <+> map toLower s
+                --     textLines <- loadText textFile
+                --     putStrLn $ unwords textLines
+                returnSub
+            10200 => do
+                modify $ record { actions = [] }
+                returnSub
+            10394 => do
+                input
+                returnSub
+            10455 => do
+                input
+                returnSub
+            --     -- error "done"
+            --     returnSub
+            10640 => do
+                -- error "done"
+                returnSub
+            10510 => do
+                goto 10600
+            10600 => do
+                returnSub
             _ => do
                 let (line, nextLine) = fromMaybe (idris_crash $ unwords ["Missing line", show lineNum]) $ SortedMap.lookup lineNum (lineMap r)
                 callCC $ \k => local (record { abortLineCont = k () }) $ traverse_ exec line
