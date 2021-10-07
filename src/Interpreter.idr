@@ -203,12 +203,26 @@ exec stmt = do
     lineNum <- gets lineNum
     assert_total $ idris_crash $ show (lineNum, stmt)
 
+numbered : List a -> List (Nat, a)
+numbered = go 0
+  where
+    go : Nat -> List a -> List (Nat, a)
+    go n [] = []
+    go n (x::xs) = (n, x) :: go (S n) xs
+
+printActions : (HasIO io) => List String -> io ()
+printActions actions = for_ (numbered actions) $ \(i, s) => do
+  print i
+  print " "
+  putStrLn s
+
 execLine = do
     -- let input : BASIC r ()
     let input : BASIC r ()
         input = do
             s <- the (S r) <$> get
-            traverse_ putStrLn $ actions s
+            printActions $ actions s
+            -- putStr "> "
 
     s <- the (S r) <$> get
     r <- the (R r) <$> ask
