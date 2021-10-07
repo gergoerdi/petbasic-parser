@@ -168,9 +168,11 @@ exec (Print ss newLine) = do
     lineNum <- gets lineNum
     vals <- traverse eval ss
     let str = concat $ map (\ (StrVal s) => s) vals
-    case str of
-    --     (c:str) | ord c == 158 => liftIO $ putStr $ "MSG: " <> sanitizeLine str
-        _ =>  modify $ record { actions $= (++ [sanitizeLine str]) }
+    case unpack str of
+        (c::str') =>
+          if ord c == 158 then do liftIO $ putStr $ "MSG: " <+> sanitizeLine (pack str')
+          else modify $ record { actions $= (<+> [sanitizeLine str]) }
+        _ =>  modify $ record { actions $= (<+> [sanitizeLine str]) }
     when newLine $ liftIO $ putStrLn ""
 exec (OnGoto e lines) = do
     (NumVal val) <- eval e
