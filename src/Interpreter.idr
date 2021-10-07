@@ -126,6 +126,9 @@ unsafeTail (x::xs) = xs
 abortLine : BASIC r ()
 abortLine = join $ asks abortLineCont
 
+sanitizeLine : String -> String
+sanitizeLine = id
+
 partial exec : Stmt -> BASIC r ()
 exec (If cond thn) = do
     b <- isTrue <$> eval cond
@@ -144,6 +147,14 @@ exec (Gosub line) = callCC $ \k => do
     modify $ record { returnConts $= (k () ::) }
     goto line
 exec Return = returnSub
+exec (Print ss newLine) = do
+    lineNum <- gets lineNum
+    vals <- traverse eval ss
+    let str = concat $ map (\ (StrVal s) => s) vals
+    case str of
+    --     (c:str) | ord c == 158 => liftIO $ putStr $ "MSG: " <> sanitizeLine str
+        _ =>  modify $ record { actions $= (++ [sanitizeLine str]) }
+    when newLine $ liftIO $ putStrLn ""
 exec (For v0 from to mstep) = do
     let v = MkV v0 []
     setVar v =<< eval from
@@ -168,6 +179,24 @@ exec (For v0 from to mstep) = do
 exec stmt = do
     lineNum <- gets lineNum
     assert_total $ idris_crash $ show (lineNum, stmt)
+
+execLine = do
+    -- let input : BASIC r ()
+    let input : BASIC r ()
+        input = do
+            s <- the (S r) <$> get
+            traverse_ putStrLn $ actions s
+
+    s <- the (S r) <$> get
+    r <- the (R r) <$> ask
+    for_ (lineNum s) $ \lineNum => do
+        -- liftIO $ print lineNum
+        case lineNum of
+            _ => do
+                let (line, nextLine) = fromMaybe (idris_crash $ unwords ["Missing line", show lineNum]) $ SortedMap.lookup lineNum (lineMap r)
+                callCC $ \k => local (record { abortLineCont = k () }) $ traverse_ exec line
+                modify $ record { lineNum = nextLine }
+                execLine
 
 zipWithNext : (a -> Maybe a -> b) -> List a -> List b
 zipWithNext f [] = []
