@@ -40,6 +40,12 @@ implementation Eq Value where
   StrVal s == StrVal s' = s == s'
   _ == _ = False
 
+implementation Ord Value where
+  compare (BoolVal b) (BoolVal b') = compare b b'
+  compare (NumVal n) (NumVal n') = compare n n'
+  compare (StrVal s) (StrVal s') = compare s s'
+  compare _ _ = LT
+
 mutual
   public export
   record S (r : Type) where
@@ -78,6 +84,14 @@ plus (StrVal s) (NumVal y) = StrVal $ s ++ show y
 plus (StrVal s) (StrVal t) = StrVal $ s ++ t
 plus _ _ = StrVal "#ERR"
 
+binNum : (Number -> Number -> Number) -> (Value -> Value -> Value)
+binNum f (NumVal x) (NumVal y) = NumVal $ f x y
+binNum f _          _          = NumVal (0/0)
+
+unNum : (Number -> Number) -> (Value -> Value)
+unNum f (NumVal x) = NumVal $ f x
+unNum f _          = NumVal (0/0)
+
 getVar : V -> BASIC r Value
 getVar var@(MkV var0 idx) = do
     value <- gets $ SortedMap.lookup var . vars
@@ -87,6 +101,19 @@ getVar var@(MkV var0 idx) = do
         (Nothing, StrVar{}) => StrVal ""
         (Nothing, RealVar{}) => NumVal 0
 
+evalBin : BinOp -> Value -> Value -> Value
+evalBin Plus = plus
+evalBin Minus = binNum (-)
+evalBin Mul = binNum (*)
+evalBin Eq = \x,y => BoolVal $ x == y
+evalBin NEq = \x,y => BoolVal $ x /= y
+evalBin LT = \x,y => BoolVal $ x < y
+evalBin LE = \x,y => BoolVal $ x <= y
+evalBin GE = \x,y => BoolVal $ x > y
+evalBin GT = \x,y => BoolVal $ x >= y
+evalBin And = \x,y => BoolVal $ isTrue x && isTrue y
+evalBin Or = \x,y => BoolVal $ isTrue x || isTrue y
+
 mutual
   var : Var -> BASIC r V
   var (MkVar v0 is) = MkV v0 <$> traverse (map (cast . floor . toFloat) . eval) is
@@ -95,25 +122,9 @@ mutual
   eval (VarE v) = getVar =<< var v
   eval (NumLitE n) = pure $ NumVal n
   eval (StrLitE n) = pure $ StrVal $ pack . map (chr . cast) $ n
-  eval (Bin Eq x y) = BoolVal <$> ((==) <$> eval x <*> eval y)
-  eval (Bin Plus x y) = plus <$> eval x <*> eval y
-  eval (Bin And x y) = do
-    v1 <- isTrue <$> eval x
-    v2 <- isTrue <$> eval y
-    pure $ BoolVal $ v1 && v2
-  eval (Bin Or x y) = do
-    v1 <- isTrue <$> eval x
-    v2 <- isTrue <$> eval y
-    pure $ BoolVal $ v1 || v2
-  eval (Bin LT v1 v2) = BoolVal <$> do
-    NumVal x <- eval v1
-    NumVal y <- eval v2
-    pure $ x < y
-  eval (Bin GE v1 v2) = BoolVal <$> do
-    NumVal x <- eval v1
-    NumVal y <- eval v2
-    pure $ x > y
-  eval e = idris_crash $ show e
+  eval (Bin op x y) = evalBin op <$> eval x <*> eval y
+  eval (NegE x) = unNum negate <$> eval x
+  eval e@(FunE f x) = assert_total $ idris_crash $ show e
 
 setVar : V -> Value -> BASIC r ()
 setVar var value = modify $ record { vars $= SortedMap.insert var value }
