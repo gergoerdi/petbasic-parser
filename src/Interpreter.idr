@@ -18,6 +18,9 @@ implementation Eq V where
 implementation Ord V where
     compare (MkV v is) (MkV v' is') = compare v v' <+> compare is is'
 
+implementation Show V where
+    show (MkV v0 is) = show v0 <+> show is
+
 data Value
     = BoolVal Bool
     | NumVal Double
