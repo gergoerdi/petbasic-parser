@@ -10,6 +10,12 @@ import Control.Monad.Cont
 
 data V = MkV Var0 (List Int16)
 
+implementation Eq V where
+    MkV v is == MkV v' is' = v == v' && is == is'
+
+implementation Ord V where
+    compare (MkV v is) (MkV v' is') = compare v v' <+> compare is is'
+
 data Value
     = BoolVal Bool
     | NumVal Double

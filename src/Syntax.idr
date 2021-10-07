@@ -15,10 +15,36 @@ public export
 data Id = MkId (List1 Bits8)
 
 public export
+implementation Eq Id where
+  MkId bs == MkId bs' = bs == bs'
+
+public export
+implementation Ord Id where
+  compare (MkId bs) (MkId bs') = compare bs bs'
+
+public export
 data Var0
   = RealVar Id
   | IntVar Id
   | StrVar Id
+
+public export
+implementation Eq Var0 where
+  RealVar nm == RealVar nm' = nm == nm'
+  IntVar nm == IntVar nm'   = nm == nm'
+  StrVar nm == StrVar nm'   = nm == nm'
+  _ == _ = False
+
+public export
+implementation Ord Var0 where
+  compare (RealVar nm) (RealVar nm') = compare nm nm'
+  compare (RealVar nm) _ = LT
+  compare (IntVar nm) (StrVar _) = GT
+  compare (IntVar nm) (IntVar nm') = compare nm nm'
+  compare (IntVar nm) _ = LT
+  compare (StrVar nm) (RealVar _) = GT
+  compare (StrVar nm) (IntVar _) = GT
+  compare (StrVar nm) (StrVar nm') = compare nm nm'
 
 public export
 data Fun
