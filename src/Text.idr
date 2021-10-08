@@ -29,9 +29,10 @@ sanitizeLine =
   map readable .
   dropWhile (<= 0x30)
 
+export
 loadText : HasIO io => String -> io (List String)
 loadText textFile = do
   Right buf <- createBufferFromFile textFile
-    | Left _ => assert_total $ idris_crash "createBufferFromFile"
+    | Left _ => assert_total $ idris_crash $ unwords ["createBufferFromFile:", textFile]
   bs <- map cast . drop 2 <$> bufferData buf
-  pure $ lines $ pack . map readable $ bs
+  pure $ filter (not . null) $ lines $ pack . map readable $ bs

@@ -313,16 +313,18 @@ execLine = do
             9970 => do
                 goto 10020
             10020 => do
-                text <- getVar $ mkV StrVar "T" []
-                ab <- getVar $ mkV RealVar "AB" []
-                fb <- getVar $ mkV RealVar "FB" []
-                let pict = pack [chr (cast . floor $ v) | NumVal v <- [ab, fb]]
-                liftIO $ putStrLn $ unwords ["PICTURE", pict]
-                -- liftIO $ do
-                --     let StrVal s = text
-                --         textFile = "disk/" <+> map toLower s
-                --     textLines <- loadText textFile
-                --     putStrLn $ unwords textLines
+                do
+                  ab <- getVar $ mkV RealVar "AB" []
+                  fb <- getVar $ mkV RealVar "FB" []
+                  let pict = pack [chr (cast . floor $ v) | NumVal v <- [ab, fb]]
+                  putStrLn $ unwords ["PICTURE", pict]
+                do
+                  text <- getVar $ mkV StrVar "T" []
+                  let StrVal s = text
+                      textFile = "disk/" <+> (pack . map (toLower . cast) $ s)
+                  textLines <- loadText textFile
+                  -- putStrLn $ unwords textLines
+                  traverse_ putStrLn textLines
                 returnSub
             10200 => do
                 modify $ record { actions = empty }
