@@ -369,4 +369,4 @@ runBASIC lines act = do
           { lineMap = lineMap
           }
 
-  evalStateT s $ runReaderT r0 $ runMaybeT act
+  evalStateT s . runReaderT r0 . runMaybeT $ act

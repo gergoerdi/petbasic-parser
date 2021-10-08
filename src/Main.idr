@@ -21,8 +21,8 @@ replicateM_ : Applicative m => (n : Nat) -> m a -> m ()
 replicateM_ 0 _ = pure ()
 replicateM_ (S n) act = act *> replicateM_ n act
 
-partial forever : Applicative m => m a -> m b
-forever f = f *> forever f
+partial forever : Monad m => m () -> m b
+forever f = f >> forever f
 
 loadGame : IO (List (LineNum, List1 Stmt))
 loadGame = do
@@ -44,5 +44,9 @@ main = do
   let lines = sortBy (comparing fst) lines
   -- traverse_ printLn lines
 
-  -- map (fromMaybe ()) $ runBASIC lines $ forever execLine
-  ignore $ runBASIC lines $ replicateM_ 100 execLine
+  let loop : BASIC ()
+      loop = do
+        execLine
+        loop
+
+  map (fromMaybe ()) $ runBASIC lines $ forever execLine
