@@ -8,6 +8,7 @@ import Data.Maybe
 import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Cont
+import Control.Monad.Maybe
 import Data.String
 
 data V = MkV Var0 (List Int16)
@@ -46,26 +47,32 @@ implementation Ord Value where
   compare (StrVal s) (StrVal s') = compare s s'
   compare _ _ = LT
 
+Cont : Type
+Cont = (LineNum, List Stmt, Maybe LineNum)
+
+LineMap : Type
+LineMap = SortedMap LineNum (List1 Stmt, Maybe LineNum)
+
 mutual
   public export
-  record S (r : Type) where
+  record S where
     constructor MkS
-    lineNum : Maybe LineNum
     vars : SortedMap V Value
-    returnConts : List (BASIC r ())
-    nextConts : List (BASIC r ())
+    currLine : Cont
+    returnConts : List Cont
+    nextConts : List Cont
     actions : List String
 
   public export
-  record R (r : Type) where
+  record R where
     constructor MkR
-    lineMap : SortedMap LineNum (List1 Stmt, Maybe LineNum)
-    abortLineCont : BASIC r ()
+    lineMap : LineMap
 
-  BASIC : Type -> Type -> Type
-  BASIC r = ReaderT (R r) (StateT (S r) (ContT r IO))
+  public export -- XXX how do we export just the Monad &c. implementations?
+  BASIC : Type -> Type
+  BASIC = MaybeT (ReaderT R (StateT S IO))
 
-modify : (S r -> S r) -> BASIC r ()
+modify : (S -> S) -> BASIC ()
 modify = Control.Monad.State.modify
 
 isTrue : Value -> Bool
@@ -92,14 +99,14 @@ unNum : (Number -> Number) -> (Value -> Value)
 unNum f (NumVal x) = NumVal $ f x
 unNum f _          = NumVal (0/0)
 
-getVar : V -> BASIC r Value
+getVar : V -> BASIC Value
 getVar var@(MkV var0 idx) = do
-    value <- gets $ SortedMap.lookup var . vars
-    pure $ case (value, var0) of
-        (Just value, _) => value
-        (Nothing, IntVar{}) => NumVal 0
-        (Nothing, StrVar{}) => StrVal ""
-        (Nothing, RealVar{}) => NumVal 0
+  value <- gets $ SortedMap.lookup var . vars
+  pure $ case (value, var0) of
+    (Just value, _) => value
+    (Nothing, IntVar{}) => NumVal 0
+    (Nothing, StrVar{}) => StrVal ""
+    (Nothing, RealVar{}) => NumVal 0
 
 evalBin : BinOp -> Value -> Value -> Value
 evalBin Plus = plus
@@ -115,10 +122,10 @@ evalBin And = \x,y => BoolVal $ isTrue x && isTrue y
 evalBin Or = \x,y => BoolVal $ isTrue x || isTrue y
 
 mutual
-  var : Var -> BASIC r V
+  var : Var -> BASIC V
   var (MkVar v0 is) = MkV v0 <$> traverse (map (cast . floor . toFloat) . eval) is
 
-  partial eval : Expr -> BASIC r Value
+  eval : Expr -> BASIC Value
   eval (VarE v) = getVar =<< var v
   eval (NumLitE n) = pure $ NumVal n
   eval (StrLitE n) = pure $ StrVal $ pack . map (chr . cast) $ n
@@ -126,29 +133,41 @@ mutual
   eval (NegE x) = unNum negate <$> eval x
   eval e@(FunE f x) = assert_total $ idris_crash $ show e
 
-setVar : V -> Value -> BASIC r ()
+setVar : V -> Value -> BASIC ()
 setVar var value = modify $ record { vars $= SortedMap.insert var value }
 
-export
-partial execLine : BASIC r ()
+loadLine : LineMap -> LineNum -> Cont
+loadLine lineMap lineNum = case lookup lineNum lineMap of
+  Nothing => assert_total $ idris_crash $ unwords ["loadLine", show lineNum]
+  Just (ss, nextLine) => (lineNum, toList ss, nextLine)
 
-goto : LineNum -> BASIC r ()
+goto : LineNum -> BASIC ()
 goto lineNum = do
-  modify $ record { lineNum = Just lineNum }
-  execLine
+  lineMap <- asks lineMap
+  modify $ record { currLine = loadLine lineMap lineNum }
 
-returnSub : BASIC r ()
+gosub : LineNum -> BASIC ()
+gosub lineNum = do
+  k <- gets currLine
+  modify $ record { returnConts $= (k::) }
+  goto lineNum
+
+returnSub : BASIC ()
 returnSub = do
-    (k :: ks) <- gets returnConts
-      | [] => assert_total $ idris_crash "gosub stack underflow"
-    modify $ record { returnConts = ks }
-    k
+  (k :: ks) <- gets returnConts
+    | [] => assert_total $ idris_crash "gosub stack underflow"
+  modify $ record { returnConts = ks, currLine = k }
 
 partial unsafeTail : List a -> List a
 unsafeTail (x::xs) = xs
 
-abortLine : BASIC r ()
-abortLine = join $ asks abortLineCont
+gotoNext : BASIC ()
+gotoNext = do
+  k <- gets currLine
+  let (_, _, nextLine) = k
+  Just nextLine <- pure nextLine
+    | Nothing => empty
+  goto nextLine
 
 sanitizeLine : String -> String
 sanitizeLine = id
@@ -163,50 +182,52 @@ index1OrLast n (x ::: xs) = case n of
     go Z     _ (x::xs)   = x
     go (S n) _ (x :: xs) = go n x xs
 
-partial exec : Stmt -> BASIC r ()
+partial exec : Stmt -> BASIC ()
 exec (If cond thn) = do
-    b <- isTrue <$> eval cond
-    unless b abortLine
-    exec thn
+  b <- isTrue <$> eval cond
+  if b then exec thn else gotoNext
 exec (Assign v e) = do
-    v <- var v
-    val <- eval e
-    setVar v val
+  v <- var v
+  val <- eval e
+  setVar v val
 exec (Poke addr e) = do
-    addr <- eval addr
-    val <- eval e
-    liftIO $ printLn ("Poke", addr, val)
+  addr <- eval addr
+  val <- eval e
+  pure () -- We should be able to ignore these; the important ones are
+          -- at special line locations.
 exec (Goto line) = goto line
-exec (Gosub line) = callCC $ \k => do
-    modify $ record { returnConts $= (k () ::) }
-    goto line
+exec (Gosub line) = gosub line
 exec Return = returnSub
 exec (Print ss newLine) = do
-    lineNum <- gets lineNum
-    vals <- traverse eval ss
-    let str = concat $ map (\ (StrVal s) => s) vals
-    case unpack str of
-        (c::str') =>
-          if ord c == 158 then do liftIO $ putStr $ "MSG: " <+> sanitizeLine (pack str')
-          else modify $ record { actions $= (<+> [sanitizeLine str]) }
-        _ =>  modify $ record { actions $= (<+> [sanitizeLine str]) }
-    when newLine $ liftIO $ putStrLn ""
+  -- lineNum <- gets lineNum
+  vals <- traverse eval ss
+  let str = concat $ map (\ (StrVal s) => s) vals
+  case unpack str of
+      (c::str') =>
+        if ord c == 158 then do liftIO $ putStr $ "MSG: " <+> sanitizeLine (pack str')
+        else modify $ record { actions $= (<+> [sanitizeLine str]) }
+      _ =>  modify $ record { actions $= (<+> [sanitizeLine str]) }
+  when newLine $ liftIO $ putStrLn ""
 exec (OnGoto e lines) = do
-    (NumVal val) <- eval e
-    let line = index1OrLast (cast $ val - 1) lines
-    goto line
+  (NumVal val) <- eval e
+  let line = index1OrLast (cast $ val - 1) lines
+  goto line
+exec (OnGosub e lines) = do
+  (NumVal val) <- eval e
+  let line = index1OrLast (cast $ val - 1) lines
+  gosub line
 exec (For v0 from to mstep) = do
-    let v = MkV v0 []
-    setVar v =<< eval from
-    let next, loop : BASIC r ()
-        next = do
-            to <- eval to
-            current <- getVar v
-            let new = current `plus` NumVal step
-            setVar v new
-            if keepGoing new to then loop else modify $ record { nextConts $= unsafeTail }
-        loop = modify $ record { nextConts $= (next::) }
-    loop
+  let v = MkV v0 []
+  setVar v =<< eval from
+  let next, loop : BASIC ()
+      next = do
+          to <- eval to
+          current <- getVar v
+          let new = current `plus` NumVal step
+          setVar v new
+          if keepGoing new to then loop else modify $ record { nextConts $= unsafeTail }
+      -- loop = modify $ record { nextConts $= (next::) }
+  loop
   where
     step : Number
     step = fromMaybe 1 mstep
@@ -216,9 +237,10 @@ exec (For v0 from to mstep) = do
 
     keepGoing : Value -> Value -> Bool
     keepGoing (NumVal x) (NumVal y) = if decreasing then x >= y else x <= y
+    keepGoing _ _ = False
 exec stmt = do
-    lineNum <- gets lineNum
-    assert_total $ idris_crash $ show (lineNum, stmt)
+  k <- gets currLine
+  assert_total $ idris_crash $ show (k, stmt)
 
 numberedFrom : Nat -> List a -> List (Nat, a)
 numberedFrom n [] = []
@@ -233,34 +255,46 @@ printActions actions = for_ (numberedFrom 1 actions) $ \(i, s) => do
   putStr " "
   putStrLn s
 
+playerMove : Number -> BASIC ()
+playerMove dir = do
+  putStrLn $ unwords ["MOVE ", show dir]
+  setVar (mkV RealVar "MH" []) $ NumVal 2
+  setVar (mkV RealVar "Z" []) $ NumVal dir
+
+playerAction : Number -> BASIC ()
+playerAction i = do
+  putStrLn $ unwords ["DO ", show i]
+  setVar (mkV RealVar "MH" []) $ NumVal 1
+  setVar (mkV RealVar "MA" []) $ NumVal i
+
+playerInput : BASIC ()
+playerInput = do
+  s <- get
+  printActions $ actions s
+  putStr "> "
+
+  s <- toLower <$> liftIO getLine
+  case words s of
+    ["do", n] => playerAction $ cast n
+    ["go", n] => playerMove $ cast n
+    _ => playerInput
+
+partial execStmts : BASIC ()
+execStmts = do
+  k <- gets currLine
+  let (lineNum, stmts, nextLine) = k
+  (s::stmts) <- pure stmts
+    | [] => gotoNext
+  modify $ record { currLine = (lineNum, stmts, nextLine) }
+  exec s
+
+export
+partial execLine : BASIC ()
 execLine = do
-    let input : BASIC r ()
-        input = do
-            s <- the (S r) <$> get
-            printActions $ actions s
-            putStr "> "
-
-            let move : Number -> BASIC r ()
-                move = \dir => do
-                    liftIO $ putStrLn $ unwords ["MOVE ", show dir]
-                    setVar (mkV RealVar "MH" []) $ NumVal 2
-                    setVar (mkV RealVar "Z" []) $ NumVal dir
-                action : Number -> BASIC r ()
-                action = \sel => do
-                    liftIO $ putStrLn $ unwords ["DO ", show sel]
-                    setVar (mkV RealVar "MH" []) $ NumVal 1
-                    setVar (mkV RealVar "MA" []) $ NumVal sel
-            s <- toLower <$> liftIO getLine
-            case words s of
-                ["do", n] => action $ cast n
-                ["go", n] => move $ cast n
-                _ => input
-            pure ()
-
-    s <- the (S r) <$> get
-    r <- the (R r) <$> ask
-    for_ (lineNum s) $ \lineNum => do
-        -- liftIO $ print lineNum
+    s <- get
+    let (lineNum, _, _) = currLine s
+    do
+        -- printLn lineNum
         case lineNum of
             132 => do
                 -- liftIO $ mapM_ putStrLn actions
@@ -295,24 +329,21 @@ execLine = do
                 modify $ record { actions = [] }
                 returnSub
             10394 => do
-                input
+                playerInput
                 returnSub
             10455 => do
-                input
+                playerInput
                 -- error "done"
                 returnSub
             10640 => do
-                -- error "done"
+                idris_crash "load/save/move"
                 returnSub
             10510 => do
                 goto 10600
             10600 => do
                 returnSub
             _ => do
-                let (line, nextLine) = fromMaybe (idris_crash $ unwords ["Missing line", show lineNum]) $ SortedMap.lookup lineNum (lineMap r)
-                callCC $ \k => local (record { abortLineCont = k () }) $ traverse_ exec line
-                modify $ record { lineNum = nextLine }
-                execLine
+              execStmts
 
 zipWithNext : (a -> Maybe a -> b) -> List a -> List b
 zipWithNext f [] = []
@@ -320,22 +351,21 @@ zipWithNext f (x :: []) = [f x Nothing]
 zipWithNext f (x :: xs@(x' :: _)) = f x (Just x') :: zipWithNext f xs
 
 export
-runBASIC : List (LineNum, List1 Stmt) -> BASIC a a -> IO a
+runBASIC : List (LineNum, List1 Stmt) -> BASIC a -> IO (Maybe a)
 runBASIC lines act = do
-    let s = MkS
-            { lineNum = Just 1805
-            , vars = SortedMap.empty
-            , returnConts = []
-            , nextConts = []
-            , actions = []
-            }
+  let nextLines = zipWithNext (\ (lineNum, line), nextLine => (lineNum, (line, fst <$> nextLine))) lines
+  let lineMap = SortedMap.fromList nextLines
 
-    let nextLines = zipWithNext (\ (lineNum, line), nextLine => (lineNum, (line, fst <$> nextLine))) lines
-    let lineMap = SortedMap.fromList nextLines
+  let s = MkS
+        { currLine = loadLine lineMap 1805
+        , vars = SortedMap.empty
+        , returnConts = []
+        , nextConts = []
+        , actions = []
+        }
 
-    let r0 = MkR
-            { lineMap = lineMap
-            , abortLineCont = pure ()
-            }
+  let r0 = MkR
+          { lineMap = lineMap
+          }
 
-    runContT (evalStateT s $ runReaderT r0 $ act) pure
+  evalStateT s $ runReaderT r0 $ runMaybeT act

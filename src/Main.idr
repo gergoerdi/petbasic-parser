@@ -11,7 +11,7 @@ import System
 
 import Control.Monad.Reader
 import Control.Monad.State
-import Control.Monad.Cont
+import Control.Monad.Maybe
 
 replicateM : (n : Nat) -> Grammar st k True a -> Grammar st k (n > 0) (List a)
 replicateM 0 _ = pure []
@@ -20,6 +20,9 @@ replicateM (S n) act = (::) <$> act <*> replicateM n act
 replicateM_ : Applicative m => (n : Nat) -> m a -> m ()
 replicateM_ 0 _ = pure ()
 replicateM_ (S n) act = act *> replicateM_ n act
+
+partial forever : Applicative m => m a -> m b
+forever f = f *> forever f
 
 loadGame : IO (List (LineNum, List1 Stmt))
 loadGame = do
@@ -37,8 +40,9 @@ loadGame = do
 
 partial main : IO ()
 main = do
-    lines <- loadGame
-    let lines = sortBy (comparing fst) lines
-    -- traverse_ printLn lines
+  lines <- loadGame
+  let lines = sortBy (comparing fst) lines
+  -- traverse_ printLn lines
 
-    runBASIC lines $ execLine -- replicateM_ 1 execLine
+  -- map (fromMaybe ()) $ runBASIC lines $ forever execLine
+  ignore $ runBASIC lines $ replicateM_ 100 execLine
