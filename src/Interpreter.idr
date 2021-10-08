@@ -215,28 +215,28 @@ exec (OnGosub e lines) = do
   (NumVal val) <- eval e
   let line = index1OrLast (cast $ val - 1) lines
   gosub line
-exec (For v0 from to mstep) = do
-  let v = MkV v0 []
-  setVar v =<< eval from
-  let next, loop : BASIC ()
-      next = do
-          to <- eval to
-          current <- getVar v
-          let new = current `plus` NumVal step
-          setVar v new
-          if keepGoing new to then loop else modify $ record { nextConts $= unsafeTail }
-      -- loop = modify $ record { nextConts $= (next::) }
-  loop
-  where
-    step : Number
-    step = fromMaybe 1 mstep
+-- exec (For v0 from to mstep) = do
+--   let v = MkV v0 []
+--   setVar v =<< eval from
+--   let next, loop : BASIC ()
+--       next = do
+--           to <- eval to
+--           current <- getVar v
+--           let new = current `plus` NumVal step
+--           setVar v new
+--           if keepGoing new to then loop else modify $ record { nextConts $= unsafeTail }
+--       -- loop = modify $ record { nextConts $= (next::) }
+--   loop
+--   where
+--     step : Number
+--     step = fromMaybe 1 mstep
 
-    decreasing : Bool
-    decreasing = step < 0
+--     decreasing : Bool
+--     decreasing = step < 0
 
-    keepGoing : Value -> Value -> Bool
-    keepGoing (NumVal x) (NumVal y) = if decreasing then x >= y else x <= y
-    keepGoing _ _ = False
+--     keepGoing : Value -> Value -> Bool
+--     keepGoing (NumVal x) (NumVal y) = if decreasing then x >= y else x <= y
+--     keepGoing _ _ = False
 exec stmt = do
   k <- gets currLine
   assert_total $ idris_crash $ show (k, stmt)
@@ -337,7 +337,7 @@ execLine = do
                 -- error "done"
                 returnSub
             10640 => do
-                idris_crash "load/save/move"
+                idris_crash "load/save/move/targyak"
                 returnSub
             10510 => do
                 goto 10600
