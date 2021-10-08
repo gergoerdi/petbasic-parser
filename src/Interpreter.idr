@@ -1,6 +1,8 @@
 module Interpreter
 
 import Syntax
+import Text
+
 import Data.SortedMap
 import Data.List
 import Data.List1
@@ -28,7 +30,7 @@ implementation Show V where
 data Value
     = BoolVal Bool
     | NumVal Double
-    | StrVal String
+    | StrVal (List Bits8)
 
 implementation Show Value where
   show (BoolVal b) = show b
@@ -78,7 +80,7 @@ modify = Control.Monad.State.modify
 isTrue : Value -> Bool
 isTrue (BoolVal b) = b
 isTrue (NumVal x) = x /= 0
-isTrue (StrVal s) = s /= ""
+isTrue (StrVal s) = not $ null s
 
 toFloat : Value -> Double
 toFloat (NumVal x) = x
@@ -87,9 +89,9 @@ toFloat (StrVal s) = 0/0
 
 plus : Value -> Value -> Value
 plus (NumVal x) (NumVal y) = NumVal $ x + y
-plus (StrVal s) (NumVal y) = StrVal $ s ++ show y
+plus (StrVal s) (NumVal y) = StrVal $ s ++ (map cast . unpack $ show y)
 plus (StrVal s) (StrVal t) = StrVal $ s ++ t
-plus _ _ = StrVal "#ERR"
+plus _ _ = StrVal . map cast . unpack $ "#ERR"
 
 binNum : (Number -> Number -> Number) -> (Value -> Value -> Value)
 binNum f (NumVal x) (NumVal y) = NumVal $ f x y
@@ -105,7 +107,7 @@ getVar var@(MkV var0 idx) = do
   pure $ case (value, var0) of
     (Just value, _) => value
     (Nothing, IntVar{}) => NumVal 0
-    (Nothing, StrVar{}) => StrVal ""
+    (Nothing, StrVar{}) => StrVal empty
     (Nothing, RealVar{}) => NumVal 0
 
 evalBin : BinOp -> Value -> Value -> Value
@@ -128,7 +130,7 @@ mutual
   eval : Expr -> BASIC Value
   eval (VarE v) = getVar =<< var v
   eval (NumLitE n) = pure $ NumVal n
-  eval (StrLitE n) = pure $ StrVal $ pack . map (chr . cast) $ n
+  eval (StrLitE bs) = pure $ StrVal bs
   eval (Bin op x y) = evalBin op <$> eval x <*> eval y
   eval (NegE x) = unNum negate <$> eval x
   eval e@(FunE f x) = assert_total $ idris_crash $ show e
@@ -169,9 +171,6 @@ gotoNext = do
     | Nothing => empty
   goto nextLine
 
-sanitizeLine : String -> String
-sanitizeLine = id
-
 total index1OrLast : Nat -> List1 a -> a
 index1OrLast n (x ::: xs) = case n of
   Z => x
@@ -202,9 +201,9 @@ exec (Print ss newLine) = do
   -- lineNum <- gets lineNum
   vals <- traverse eval ss
   let str = concat $ map (\ (StrVal s) => s) vals
-  case unpack str of
+  case str of
       (c::str') =>
-        if ord c == 158 then do liftIO $ putStr $ "MSG: " <+> sanitizeLine (pack str')
+        if c == 158 then do putStr $ "MSG: " <+> sanitizeLine str'
         else modify $ record { actions $= (<+> [sanitizeLine str]) }
       _ =>  modify $ record { actions $= (<+> [sanitizeLine str]) }
   when newLine $ liftIO $ putStrLn ""
@@ -326,7 +325,7 @@ execLine = do
                 --     putStrLn $ unwords textLines
                 returnSub
             10200 => do
-                modify $ record { actions = [] }
+                modify $ record { actions = empty }
                 returnSub
             10394 => do
                 playerInput
@@ -358,10 +357,10 @@ runBASIC lines act = do
 
   let s = MkS
         { currLine = loadLine lineMap 1805
-        , vars = SortedMap.empty
-        , returnConts = []
-        , nextConts = []
-        , actions = []
+        , vars = empty
+        , returnConts = empty
+        , nextConts = empty
+        , actions = empty
         }
 
   let r0 = MkR
