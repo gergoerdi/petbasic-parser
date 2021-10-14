@@ -44,9 +44,11 @@ main = do
   let lines = sortBy (comparing fst) lines
   -- traverse_ printLn lines
 
-  let loop : BASIC ()
-      loop = do
-        execLine
-        loop
+  -- let loop : BASIC ()
+  --     loop = do
+  --       execLine
+  --       loop
 
-  map (fromMaybe ()) $ runBASIC lines $ forever execLine
+  let (r, s) = startBASIC lines
+  printLn . snd =<< runBASIC r s
+  printLn . snd =<< runBASIC r s

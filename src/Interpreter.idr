@@ -9,8 +9,7 @@ import Data.List1
 import Data.Maybe
 import Control.Monad.Reader
 import Control.Monad.State
-import Control.Monad.Cont
-import Control.Monad.Maybe
+import Control.Monad.Either
 import Data.String
 
 data V = MkV Var0 (List Int16)
@@ -70,9 +69,19 @@ mutual
     constructor MkR
     lineMap : LineMap
 
+  public export
+  data Output
+    = EndGame
+    | Message String
+
   public export -- XXX how do we export just the Monad &c. implementations?
   BASIC : Type -> Type
-  BASIC = MaybeT (ReaderT R (StateT S IO))
+  BASIC = EitherT Output (ReaderT R (StateT S IO))
+
+export
+Show Output where
+  show EndGame = "EndGame"
+  show (Message s) = "Message " <+> s
 
 modify : (S -> S) -> BASIC ()
 modify = Control.Monad.State.modify
@@ -168,7 +177,7 @@ gotoNext = do
   k <- gets currLine
   let (_, _, nextLine) = k
   Just nextLine <- pure nextLine
-    | Nothing => empty
+    | Nothing => left EndGame
   goto nextLine
 
 total index1OrLast : Nat -> List1 a -> a
@@ -203,10 +212,10 @@ exec (Print ss newLine) = do
   let str = concat $ map (\ (StrVal s) => s) vals
   case str of
       (c::str') =>
-        if c == 158 then do putStr $ "MSG: " <+> sanitizeLine str'
+        if c == 158 then throwE . Message $ sanitizeLine str'
         else modify $ record { actions $= (<+> [sanitizeLine str]) }
       _ =>  modify $ record { actions $= (<+> [sanitizeLine str]) }
-  when newLine $ liftIO $ putStrLn ""
+  -- when newLine $ liftIO $ putStrLn ""
 exec (OnGoto e lines) = do
   (NumVal val) <- eval e
   let line = index1OrLast (cast $ val - 1) lines
@@ -304,6 +313,9 @@ execLine = do
             9015 => do
                 liftIO $ putStrLn "CLRSCR"
                 returnSub
+            9120 => do
+                putStrLn "Inventory"
+                returnSub
             9600 => do
                 liftIO $ putStrLn "copy protection"
                 returnSub
@@ -351,13 +363,21 @@ zipWithNext f [] = []
 zipWithNext f (x :: []) = [f x Nothing]
 zipWithNext f (x :: xs@(x' :: _)) = f x (Just x') :: zipWithNext f xs
 
-export
-runBASIC : List (LineNum, List1 Stmt) -> BASIC a -> IO (Maybe a)
-runBASIC lines act = do
-  let nextLines = zipWithNext (\ (lineNum, line), nextLine => (lineNum, (line, fst <$> nextLine))) lines
-  let lineMap = SortedMap.fromList nextLines
+partial export
+runBASIC : R -> S -> IO (S, Output)
+runBASIC r s = do
+  (s', res) <- runStateT s . runReaderT r . runEitherT $ execLine
+  case res of
+    Left ev => pure (s', ev)
+    Right () => runBASIC r s'
 
-  let s = MkS
+export
+startBASIC : List (LineNum, List1 Stmt) -> (R, S)
+startBASIC lines =
+  let nextLines = zipWithNext (\ (lineNum, line), nextLine => (lineNum, (line, fst <$> nextLine))) lines
+      lineMap = SortedMap.fromList nextLines
+
+      s0 = MkS
         { currLine = loadLine lineMap 1805
         , vars = empty
         , returnConts = empty
@@ -365,8 +385,7 @@ runBASIC lines act = do
         , actions = empty
         }
 
-  let r0 = MkR
-          { lineMap = lineMap
-          }
-
-  evalStateT s . runReaderT r0 . runMaybeT $ act
+      r = MkR
+         { lineMap = lineMap
+         }
+  in (r, s0)
