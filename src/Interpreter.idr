@@ -73,15 +73,19 @@ mutual
   data Output
     = EndGame
     | Message String
+    | ChangeRoom String String
+    | WaitInput (List String)
 
   public export -- XXX how do we export just the Monad &c. implementations?
   BASIC : Type -> Type
-  BASIC = EitherT Output (ReaderT R (StateT S IO))
+  BASIC = EitherT Output (ReaderT R (State S))
 
 export
 Show Output where
   show EndGame = "EndGame"
   show (Message s) = "Message " <+> s
+  show (ChangeRoom pictTag textTag) = unwords ["ChangeRoom", show pictTag, show textTag]
+  show (WaitInput actions) = unlines $ "WaitInput" :: map (" * " <+>) actions
 
 modify : (S -> S) -> BASIC ()
 modify = Control.Monad.State.modify
@@ -177,7 +181,7 @@ gotoNext = do
   k <- gets currLine
   let (_, _, nextLine) = k
   Just nextLine <- pure nextLine
-    | Nothing => left EndGame
+    | Nothing => throwE EndGame
   goto nextLine
 
 total index1OrLast : Nat -> List1 a -> a
@@ -263,29 +267,31 @@ printActions actions = for_ (numberedFrom 1 actions) $ \(i, s) => do
   putStr " "
   putStrLn s
 
+export
 playerMove : Number -> BASIC ()
 playerMove dir = do
-  putStrLn $ unwords ["MOVE ", show dir]
   setVar (mkV RealVar "MH" []) $ NumVal 2
   setVar (mkV RealVar "Z" []) $ NumVal dir
 
+export
 playerAction : Number -> BASIC ()
 playerAction i = do
-  putStrLn $ unwords ["DO ", show i]
   setVar (mkV RealVar "MH" []) $ NumVal 1
   setVar (mkV RealVar "MA" []) $ NumVal i
 
 playerInput : BASIC ()
-playerInput = do
-  s <- get
-  printActions $ actions s
-  putStr "> "
+playerInput = throwE . WaitInput =<< gets actions
 
-  s <- toLower <$> liftIO getLine
-  case words s of
-    ["do", n] => playerAction $ cast n
-    ["go", n] => playerMove $ cast n
-    _ => playerInput
+-- playerInput = do
+--   s <- get
+--   printActions $ actions s
+--   putStr "> "
+
+--   s <- toLower <$> liftIO getLine
+--   case words s of
+--     ["do", n] => playerAction $ cast n
+--     ["go", n] => playerMove $ cast n
+--     _ => playerInput
 
 partial execStmts : BASIC ()
 execStmts = do
@@ -308,49 +314,47 @@ execLine = do
                 -- liftIO $ mapM_ putStrLn actions
                 idris_crash "DIE"
             3610 => do
-                liftIO $ putStrLn "PAUSE"
+                -- liftIO $ putStrLn "PAUSE"
                 goto 3620
             9015 => do
-                liftIO $ putStrLn "CLRSCR"
+                -- liftIO $ putStrLn "CLRSCR"
                 returnSub
             9120 => do
-                putStrLn "Inventory"
+                -- putStrLn "Inventory"
                 returnSub
             9600 => do
-                liftIO $ putStrLn "copy protection"
+                -- liftIO $ putStrLn "copy protection"
                 returnSub
             9790 => do
-                liftIO $ putStrLn "PAUSE"
+                -- liftIO $ putStrLn "PAUSE"
                 returnSub
             9970 => do
                 goto 10020
             10020 => do
-                do
-                  ab <- getVar $ mkV RealVar "AB" []
-                  fb <- getVar $ mkV RealVar "FB" []
-                  let pict = pack [chr (cast . floor $ v) | NumVal v <- [ab, fb]]
-                  putStrLn $ unwords ["PICTURE", pict]
-                do
-                  text <- getVar $ mkV StrVar "T" []
-                  let StrVal s = text
-                      textFile = "disk/" <+> (pack . map (toLower . cast) $ s)
-                  textLines <- loadText textFile
+                ab <- getVar $ mkV RealVar "AB" []
+                fb <- getVar $ mkV RealVar "FB" []
+                let pictTag = pack [chr (cast . floor $ v) | NumVal v <- [ab, fb]]
+                text <- getVar $ mkV StrVar "T" []
+                let StrVal s = text
+                    textTag = pack . map (toLower . cast) $ s
+                    -- textFile = "disk/" <+> (pack . map (toLower . cast) $ s)
+                  -- textLines <- loadText textFile
                   -- putStrLn $ unwords textLines
-                  traverse_ putStrLn textLines
+                  -- traverse_ putStrLn textLines
                 returnSub
+                throwE $ ChangeRoom pictTag textTag
             10200 => do
                 modify $ record { actions = empty }
                 returnSub
             10394 => do
-                playerInput
                 returnSub
+                playerInput
             10455 => do
+                returnSub
                 playerInput
-                -- error "done"
-                returnSub
             10640 => do
-                idris_crash "load/save/move/targyak"
                 returnSub
+                playerInput
             10510 => do
                 goto 10600
             10600 => do
@@ -364,12 +368,12 @@ zipWithNext f (x :: []) = [f x Nothing]
 zipWithNext f (x :: xs@(x' :: _)) = f x (Just x') :: zipWithNext f xs
 
 partial export
-runBASIC : R -> S -> IO (S, Output)
-runBASIC r s = do
-  (s', res) <- runStateT s . runReaderT r . runEitherT $ execLine
-  case res of
-    Left ev => pure (s', ev)
-    Right () => runBASIC r s'
+runBASIC : R -> S -> BASIC () -> (S, Output)
+runBASIC r s act =
+  let (s', res) = runState s . runReaderT r . runEitherT $ act
+  in case res of
+    Left ev => (s', ev)
+    Right () => runBASIC r s' execLine
 
 export
 startBASIC : List (LineNum, List1 Stmt) -> (R, S)
