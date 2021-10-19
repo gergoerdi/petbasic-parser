@@ -1,12 +1,11 @@
--- import Syntax
--- import Parser
+import Syntax
+import Parser
 -- import Interpreter
 
--- import Text.Parser
--- import Data.List
+import Text.Parser as P
+import Data.List
 -- import Data.Maybe
 -- import Data.String
--- import System
 
 -- import Control.Monad.Reader
 -- import Control.Monad.State
@@ -21,32 +20,26 @@ import Web.Raw.UIEvents
 import Web.Raw.Fetch
 
 %hide Array.fromString
+%hide Text.Parser.Core.(>>=)
 
 %foreign "browser:lambda:(_a, x) => ((console.log(x),x))"
 traceConsoleId : a -> a
 
--- replicateM : (n : Nat) -> Grammar st k True a -> Grammar st k (n > 0) (List a)
--- replicateM 0 _ = pure []
--- replicateM (S n) act = (::) <$> act <*> replicateM n act
+replicateM : (n : Nat) -> Grammar st k True a -> Grammar st k (n > 0) (List a)
+replicateM 0 _ = pure []
+replicateM (S n) act = (::) <$> act <*> replicateM n act
 
--- parseGame : List Bits8 -> List (LineNum, List1 Stmt)
--- parseGame bs = case parse (replicateM 1148 line) . map irrelevantBounds $ bs' of
---   Left errs => assert_total $ idris_crash "parse"
---   Right (x, rest) => x
---   where
---     patch : List Bits8 -> List Bits8
---     patch bs = let (pre, post) = splitAt (0x0803 + 28282) bs
---           in pre <+> [0x99] <+> post
+parseGame : List Bits8 -> List (LineNum, List1 Stmt)
+parseGame bs = case parse (replicateM 1148 line) . map irrelevantBounds $ bs' of
+  Left errs => assert_total $ idris_crash "parse"
+  Right (x, rest) => x
+  where
+    patch : List Bits8 -> List Bits8
+    patch bs = let (pre, post) = splitAt (0x0803 + 28282) bs
+          in pre <+> [0x99] <+> post
 
---     bs' : List Bits8
---     bs' = drop 0x0803 . patch . drop 2 $ bs
-
--- loadGame : IO (List (LineNum, List1 Stmt))
--- loadGame = do
---     let fn = "pokol.mem"
---     Right buf <- createBufferFromFile fn
---       | Left _ => assert_total $ idris_crash "createBufferFromFile"
---     bs <- map cast <$> bufferData buf
+    bs' : List Bits8
+    bs' = drop 0x0803 . patch . drop 2 $ bs
 
 -- partial main : IO ()
 -- main = do
@@ -129,9 +122,9 @@ main = runJS $ do
   p <- p `then_` arrayBuffer
   _ <- p `then_` \buf => (ready () <$) $ do
     buf8 <- pure $ the UInt8Array $ cast buf
-    bs <- traverse (readIO buf8) [0 .. !(sizeIO buf8)]
-    -- bs <- pure $ withArray !(arrayDataFrom buf8) freeze
-    -- let game = parseGame bs
-    pure $ traceConsoleId bs
+    n <- sizeIO buf8
+    bs <- catMaybes <$> traverse (readIO buf8) [0 .. traceConsoleId n]
+    let game = parseGame bs
+    pure $ traceConsoleId game
 
   pure ()
