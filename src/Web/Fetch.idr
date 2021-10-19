@@ -21,6 +21,8 @@ raw__then : Promise a -> (a -> JSIO (NS I [b, Promise b])) -> JSIO (Promise b)
 raw__then p k = primIO $ prim__then p $ \x =>
   toPrim $ eitherT (\err => assert_total $ idris_crash $ dispErr err) (pure . toUnion2) $ k x
 
+infixl 10 `then_`
+
 -- export
 -- then_ : {auto prf : Elem r [b, Promise b]} -> Promise a -> (a -> JSIO r) -> JSIO (Promise b)
 -- then_ {b = b} {r = r} {prf = prf} p k = raw__then p $ \x => inj <$> k x
