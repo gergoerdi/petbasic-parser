@@ -41,3 +41,10 @@ raw__ready : {0 a : Type} -> a -> Promise a
 export
 ready : a -> Promise a
 ready = raw__ready
+
+%foreign "javascript:lambda:x => new Uint8Array(x)"
+prim__toUint8Array : ArrayBuffer -> UInt8Array
+
+export
+Cast ArrayBuffer UInt8Array where
+  cast = prim__toUint8Array

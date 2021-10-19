@@ -125,9 +125,13 @@ partial main : IO ()
 main = runJS $ do
   -- ui <- initUI
 
-  p <- fetch "http://localhost/po/Makefile"
+  p <- fetch "http://localhost/po/pokol.mem"
   p <- p `then_` arrayBuffer
   _ <- p `then_` \buf => (ready () <$) $ do
-    pure $ traceConsoleId buf
+    buf8 <- pure $ the UInt8Array $ cast buf
+    bs <- traverse (readIO buf8) [0 .. !(sizeIO buf8)]
+    -- bs <- pure $ withArray !(arrayDataFrom buf8) freeze
+    -- let game = parseGame bs
+    pure $ traceConsoleId bs
 
   pure ()
