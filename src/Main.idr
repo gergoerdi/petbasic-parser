@@ -32,10 +32,6 @@ replicateM : (n : Nat) -> Grammar st k True a -> Grammar st k (n > 0) (List a)
 replicateM 0 _ = pure []
 replicateM (S n) act = (::) <$> act <*> replicateM n act
 
-record Buf8Parser m a where
-  constructor MkBuf8Parser
-  runBufParser : ReaderT UInt8Array (StateT Bits32 m) a
-
 (HasIO io) => MonadToken (ReaderT UInt8Array (StateT Bits32 io)) Bits8 where
   nextToken = do
     v <- ask
@@ -52,22 +48,15 @@ record Buf8Parser m a where
     x <- act
     pure (x, put i)
 
-parseGame : (HasIO io) => UInt8Array -> io (List (LineNum, List1 Stmt))
--- parseGame buf = do
---   r <- runReaderT buf $ evalStateT 0 $ parseM $ replicateM 1148 line
---   pure $ case r of
---     Left errs => assert_total $ idris_crash "parse"
---     Right x => x
--- parseGame bs = case parse (replicateM 1148 line) . map irrelevantBounds $ bs' of
---   Left errs => assert_total $ idris_crash "parse"
---   Right (x, rest) => x
---   where
---     patch : List Bits8 -> List Bits8
---     patch bs = let (pre, post) = splitAt (0x0803 + 28282) bs
---           in pre <+> [0x99] <+> post
+parseGame' : (HasIO io) => {c : Bool} -> Grammar () Bits8 c a -> ReaderT UInt8Array (StateT Bits32 io) (Either ? a)
+parseGame' = parseM
 
---     bs' : List Bits8
---     bs' = drop 0x0803 . patch . drop 2 $ bs
+parseGame : (HasIO io) => UInt8Array -> io (List (LineNum, List1 Stmt))
+parseGame buf = do
+  r <- evalStateT (the Bits32 0) $ runReaderT buf $ parseGame' $ replicateM 1148 line
+  pure $ case (the (Either (List1 (ParsingError Bits8)) ?) r) of
+    Left errs => assert_total $ idris_crash "parse"
+    Right x => x
 
 -- partial main : IO ()
 -- main = do
@@ -133,30 +122,11 @@ parseGame : (HasIO io) => UInt8Array -> io (List (LineNum, List1 Stmt))
 --     , actions = actions
 --     }
 
--- later : Promise a -> Union2 a (Promise a)
--- later x = toUnion2 $ inject x
-
-later : Promise a -> NS I [a, Promise a]
-later x = inject x
-
-now : a -> NS I [a, Promise a]
-now x = inject x
-
--- arrayToListIO : (HasIO io, ArrayLike arr a) => arr -> io (List a)
--- arrayToListIO {io = io} {a = a} v = go 0 []
---   where
---     go : Bits32 -> List a -> io (List a)
---     go i acc = do
---       mx <- readIO v i
---       case mx of
---         Nothing => pure $ reverse acc
---         Just x => go (i + 1) (x :: acc)
-
 partial main : IO ()
 main = runJS $ do
   -- ui <- initUI
 
-  p <- fetch "http://localhost/po/pokol.mem"
+  p <- fetch "http://localhost/po/patched.mem"
   p <- p `then_` arrayBuffer
   _ <- p `then_` \buf => do
     buf8 <- pure $ the UInt8Array $ cast buf
