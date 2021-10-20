@@ -1,0 +1,104 @@
+@font-face {
+    font-family: 'PetMe64';
+    src: url('PetMe64.ttf');
+}
+
+body {
+    background: black;
+    color: lightgrey;
+    /* font-family: PetMe64; */
+    font-family: monospace;
+    font-weight: bold;
+    font-size: 16pt;
+
+    max-width: 640;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 32;
+    margin-bottom: 32;
+}
+
+pre {
+    /* transform:scale(1.25,1) translate(51px); /\* TODO: translate amount *\/ */
+    max-width: 100%;
+    font-size: 1.1em;
+    width: fit-content;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+img {
+    width: 384;
+}
+
+#compass {
+    float: right;
+    position: relative;
+    /* border: 3px solid red; */
+    width: 168px;
+    height: 168px;
+   
+}
+
+#compass > span {
+    position: absolute;
+}
+
+#compass span a {
+    width: 1.4em;
+    display: block;
+    text-align: center;
+}
+
+#compass-n, #compass-s {
+    left: 50%;
+    transform: translateX(-50%);
+}
+
+#compass-w, #compass-e {
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+#compass-n {
+    top: 24;
+}
+
+#compass-s {
+    bottom: 24;
+}
+
+#compass-w {
+    left: 24;
+}
+
+#compass-e {
+    right: 24;
+}
+
+#prompt {
+    border-top: 3px solid #4040ff;
+    border-bottom: 3px solid #4040ff;
+    text-align: center;
+    color: yellow;
+}
+
+a {
+    text-decoration: none;
+    color: lightgreen;
+}
+
+a:hover {
+    background: darkgoldenrod;
+}
+
+#inventory {
+    text-transform: uppercase; 
+    /* text-transform: capitalize; */
+    /* float: left; */
+    display: block;
+}
+
+* {
+    /* outline: 1px solid red; */
+}

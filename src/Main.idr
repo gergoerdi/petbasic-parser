@@ -84,53 +84,57 @@ parseGame buf = do
 --         loop s' next
 --   loop s execLine
 
--- record UI where
---   constructor MkUI
---   img : Image
---   text : Pre
---   prompt : Paragraph
---   actions: UList
+record UI where
+  constructor MkUI
+  img : Image
+  text : Pre
+  prompt : Paragraph
+  actions: UList
 
--- initUI : JSIO UI
--- initUI = do
---   img <- newElement Ime [src =. "01.png"]
+initUI : JSIO UI
+initUI = do
+  img <- newElement Ime [src =. "01.png"]
 
---   _ <- appendChild !body img
+  _ <- appendChild !body img
 
---   compass <- newElement Div [id =. "compass"]
---   for_ [(the String "n", "É"), ("s", "D"), ("e", "K"), ("w", "NY")] $ \(tag, lab) => do
---     span <- newElement Span [id =. ("compass-" <+> tag)]
---     a <- newElement A  [href =. "", textContent =. lab]
---     _ <- appendChild span a
---     _ <- appendChild compass span
---     pure ()
---   _ <- appendChild !body compass
+  compass <- newElement Div [id =. "compass"]
+  for_ [(the String "n", "É"), ("s", "D"), ("e", "K"), ("w", "NY")] $ \(tag, lab) => do
+    span <- newElement Span [id =. ("compass-" <+> tag)]
+    a <- newElement A  [href =. "", textContent =. lab]
+    _ <- appendChild span a
+    _ <- appendChild compass span
+    pure ()
+  _ <- appendChild !body compass
 
---   text <- createElement Pre
---   _ <- appendChild !body text
+  text <- createElement Pre
+  _ <- appendChild !body text
 
---   prompt <- newElement P [id =. "prompt"]
---   _ <- appendChild !body prompt
+  prompt <- newElement P [id =. "prompt"]
+  _ <- appendChild !body prompt
 
---   actions <- createElement Ul
---   _ <- appendChild !body actions
+  actions <- createElement Ul
+  _ <- appendChild !body actions
 
---   pure $ MkUI
---     { img = img
---     , text = text
---     , prompt = prompt
---     , actions = actions
---     }
+  pure $ MkUI
+    { img = img
+    , text = text
+    , prompt = prompt
+    , actions = actions
+    }
 
 partial main : IO ()
 main = runJS $ do
-  -- ui <- initUI
+  ui <- initUI
 
   p <- fetch "http://localhost/po/patched.mem"
   p <- p `then_` arrayBuffer
   _ <- p `then_` \buf => do
     buf8 <- pure $ the UInt8Array $ cast buf
+    pure $ traceConsole "Loaded" ()
     game <- parseGame buf8
-    pure $ ready $ traceConsole game ()
+    pure $ traceConsole "Parsed" ()
+    textContent ui.text .= "Game loaded"
+    pure $ ready ()
+    -- pure $ ready $ traceConsole game ()
 
   pure ()
