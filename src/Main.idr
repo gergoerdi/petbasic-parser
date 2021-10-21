@@ -1,6 +1,6 @@
 import Syntax
 import Binary
--- import Interpreter
+import Interpreter
 
 import Text.Parser as P
 import Data.List
@@ -54,32 +54,6 @@ loadGame buf = liftIO $ evalStateT (the Bits32 0) $ runReaderT buf $ loadList lo
     loadLine : Get (LineNum, List1 Stmt)
     loadLine = (,) <$> load <*> loadList1 load
 
--- partial main : IO ()
--- main = do
---   lines <- loadGame
---   let lines = sortBy (comparing fst) lines
---   -- traverse_ printLn lines
-
---   let (r, s) = startBASIC lines
---   let loop : S -> BASIC () -> IO ()
---       loop s act = do
---         let (s', out) = runBASIC r s act
---         printLn out
---         next <- case out of
---           WaitInput actions => do
---             let waitInput : IO (BASIC ())
---                 waitInput = do
---                   putStr "> "
---                   s <- toLower <$> getLine
---                   case words s of
---                     ["do", n] => pure $ playerAction $ cast n
---                     ["go", n] => pure $ playerMove $ cast n
---                     _ => waitInput
---             waitInput
---           _ => pure execLine
---         loop s' next
---   loop s execLine
-
 record UI where
   constructor MkUI
   img : Image
@@ -89,7 +63,7 @@ record UI where
 
 initUI : JSIO UI
 initUI = do
-  img <- newElement Ime [src =. "01.png"]
+  img <- createElement Ime
 
   _ <- appendChild !body img
 
@@ -118,6 +92,64 @@ initUI = do
     , actions = actions
     }
 
+elementList : HTMLCollection -> JSIO (List Element)
+elementList coll = do
+  n <- HTMLCollection.length coll
+  let loop : Bits32 -> JSIO (List Element)
+      loop i = do
+        if i < n
+          then do
+            mx <- HTMLCollection.item coll i
+            case mx of
+              Nothing => pure []
+              Just x => (x ::) <$> loop (i + 1)
+          else pure []
+  loop 0
+
+partial step : UI -> R -> S -> JSIO S
+step ui r s = do
+  -- let loop : S -> BASIC () -> JSIO ()
+  --     loop s act = do
+  --       let (s', out) = runBASIC r s act
+  --       printLn out
+  --       next <- case out of
+  --         WaitInput actions => do
+  --           let waitInput : IO (BASIC ())
+  --               waitInput = do
+  --                 putStr "> "
+  --                 s <- toLower <$> getLine
+  --                 case words s of
+  --                   ["do", n] => pure $ playerAction $ cast n
+  --                   ["go", n] => pure $ playerMove $ cast n
+  --                   _ => waitInput
+  --           waitInput
+  --         _ => pure execLine
+  --       loop s' next
+  -- loop s execLine
+
+  let loop : S -> JSIO S
+      loop s = do
+        let (s', out) = runBASIC r s execLine
+        case out of
+          ChangeRoom pic txt => do
+            src ui.img .= pic <+> ".png"
+            textContent ui.text .= txt
+            loop s'
+          WaitInput actions => do
+            oldActions <- elementList =<< children ui.actions
+            traverse_ (removeChild ui.actions) oldActions
+            for_ actions $ \action => do
+              a <- newElement A [textContent =. action, href =. ""]
+              li <- createElement Li
+              ignore $ appendChild li a
+              ignore $ appendChild ui.actions li
+            pure s'
+          EndGame => pure s'
+          _ => do
+            printLn out
+            pure s'
+  loop s
+
 partial main : IO ()
 main = runJS $ do
   ui <- initUI
@@ -126,11 +158,11 @@ main = runJS $ do
   p <- p `then_` arrayBuffer
   _ <- p `then_` \buf => do
     buf8 <- pure $ the UInt8Array $ cast buf
-    pure $ traceConsole "Loaded" ()
-    game <- loadGame buf8
-    pure $ traceConsole "Parsed" ()
-    textContent ui.text .= "Game loaded"
+    printLn "Loaded"
+    lines <- loadGame buf8
+    printLn "Parsed"
+    let (r, s) = startBASIC lines
+    s' <- step ui r s
     pure $ ready ()
-    -- pure $ ready $ traceConsole game ()
 
   pure ()
