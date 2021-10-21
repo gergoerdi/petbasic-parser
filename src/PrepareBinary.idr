@@ -8,13 +8,14 @@ import Text.Parser as P
 import Data.List
 
 import Data.Binary
-import Data.Binary.File
+import Data.Binary.Buffer
 
 import Data.Buffer
 import System.File
 import System.File.Buffer
 
 import Control.Monad.Reader
+import Control.Monad.State
 
 replicateM : (n : Nat) -> Grammar st k True a -> Grammar st k (n > 0) (List a)
 replicateM 0 _ = pure []
@@ -38,15 +39,14 @@ main : IO ()
 main = do
   lines <- loadGame
 
-  -- withFile "prog.ppb" WriteTruncate (\_ => pure ()) $ \h =>
-  --   pure $ Right ()
-  -- pure ()
-  Right out <- openFile "pokol.ppb" WriteTruncate
+  Just buf <- newBuffer 60000
+    | Nothing => pure ()
+  len <- execStateT 0 $ runReaderT buf $ putList putLine lines
+  printLn len
+
+  Right () <- writeBufferToFile "pokol.ppb" buf len
     | Left err => pure ()
-  -- -- let bs = reverse $ execState [] $ saveList saveLine $ take 10 lines
-  runReaderT out $ putList putLine $ lines
-  -- -- printLn $ length bs
-  closeFile out
+  pure ()
   where
     putLine : (LineNum, List1 Stmt) -> Put ()
     putLine (lineNum, stmts) = put lineNum *> putList1 put stmts
