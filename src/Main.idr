@@ -1,5 +1,5 @@
 import Syntax
-import Parser
+import Binary
 -- import Interpreter
 
 import Text.Parser as P
@@ -48,15 +48,11 @@ replicateM (S n) act = (::) <$> act <*> replicateM n act
     x <- act
     pure (x, put i)
 
-parseGame' : (HasIO io) => {c : Bool} -> Grammar () Bits8 c a -> ReaderT UInt8Array (StateT Bits32 io) (Either ? a)
-parseGame' = parseM
-
-parseGame : (HasIO io) => UInt8Array -> io (List (LineNum, List1 Stmt))
-parseGame buf = do
-  r <- evalStateT (the Bits32 0) $ runReaderT buf $ parseGame' $ replicateM 1148 line
-  pure $ case (the (Either (List1 (ParsingError Bits8)) ?) r) of
-    Left errs => assert_total $ idris_crash "parse"
-    Right x => x
+loadGame : (HasIO io) => UInt8Array -> io (List (LineNum, List1 Stmt))
+loadGame buf = liftIO $ evalStateT (the Bits32 0) $ runReaderT buf $ loadList loadLine
+  where
+    loadLine : Get (LineNum, List1 Stmt)
+    loadLine = (,) <$> load <*> loadList1 load
 
 -- partial main : IO ()
 -- main = do
@@ -126,12 +122,12 @@ partial main : IO ()
 main = runJS $ do
   ui <- initUI
 
-  p <- fetch "http://localhost/po/patched.mem"
+  p <- fetch "http://localhost/po/pokol.ppb"
   p <- p `then_` arrayBuffer
   _ <- p `then_` \buf => do
     buf8 <- pure $ the UInt8Array $ cast buf
     pure $ traceConsole "Loaded" ()
-    game <- parseGame buf8
+    game <- loadGame buf8
     pure $ traceConsole "Parsed" ()
     textContent ui.text .= "Game loaded"
     pure $ ready ()
