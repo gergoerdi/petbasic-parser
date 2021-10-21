@@ -9,11 +9,11 @@ import Syntax
 import Data.List1
 import Data.List
 
-export
+public export
 Get : Type -> Type
 Get = ReaderT UInt8Array (StateT Bits32 IO)
 
-export
+public export
 Put : Type -> Type
 Put = ReaderT (Array Bits8) (StateT Bits32 IO)
 
@@ -30,18 +30,22 @@ saveBits8 x = do
   arr <- ask
   writeIO arr i x
 
+export
 interface Binary a where
   load : Get a
   save : a -> Put ()
 
+export
 implementation Binary Bits8 where
   load = loadBits8
   save = saveBits8
 
+export
 implementation Binary Bool where
   load = pure $ !loadBits8 /= 0
   save b = saveBits8 $ if b then 1 else 0
 
+export
 implementation Binary Bits16 where
   load = do
     lo <- loadBits8
@@ -49,10 +53,11 @@ implementation Binary Bits16 where
     pure $ cast hi * 0x100 + cast lo
 
   save x = do
-    let hi = x `div` 0x100
-        lo = x `mod` 0x100
+    let hi = the Bits8 $ cast $ x `div` 0x100
+        lo = the Bits8 $ cast $ x `mod` 0x100
     save lo *> save hi
 
+export
 implementation Binary Double where
   load = cast . the Bits16 <$> load
   save = save . the Bits16 . cast
@@ -63,17 +68,21 @@ tag = save
 loadTag : Get Bits8
 loadTag = load
 
+export
 saveList : (a -> Put ()) -> List a -> Put ()
 saveList save' xs = save (the Bits8 $ cast $ length xs) *> traverse_ save' xs
 
+export
 loadList : Get a -> Get (List a)
 loadList loadElem = do
   n <- load
   sequence (replicate (cast $ the Bits8 n) loadElem)
 
+export
 saveList1 : (a -> Put ()) -> List1 a -> Put ()
 saveList1 save (x ::: xs) = save x *> saveList save xs
 
+export
 loadList1 : Get a -> Get (List1 a)
 loadList1 load = (:::) <$> load <*> loadList load
 
@@ -164,6 +173,7 @@ mutual
         funToTag Asc     = 0xc6
         funToTag Tab     = 0xa3
 
+export
 implementation Binary Stmt where
   load = loadTag >>= \tag => assert_total $ case tag of
     0x80 => pure End
