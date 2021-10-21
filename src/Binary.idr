@@ -70,13 +70,13 @@ loadTag = load
 
 export
 saveList : (a -> Put ()) -> List a -> Put ()
-saveList save' xs = save (the Bits8 $ cast $ length xs) *> traverse_ save' xs
+saveList save' xs = save (the Bits16 $ cast $ length xs) *> traverse_ save' xs
 
 export
 loadList : Get a -> Get (List a)
 loadList loadElem = do
   n <- load
-  sequence (replicate (cast $ the Bits8 n) loadElem)
+  sequence (replicate (cast $ the Bits16 n) loadElem)
 
 export
 saveList1 : (a -> Put ()) -> List1 a -> Put ()
