@@ -93,7 +93,7 @@ data Stmt
   | Gosub LineNum
   | Return
   | Poke Expr Expr
-  | For Var0 Expr Expr (Maybe Number)
+  | For Var0 Expr Expr Number
   | Read Var
   | Next Var0
   | Data (List1 Number)
@@ -181,7 +181,7 @@ mutual
     show (Goto n) = unwords ["GOTO", show n]
     show (Gosub n) = unwords ["GOSUB",  show n]
     show Return = "RETURN"
-    show (For v from to step) = unwords ["FOR", show v, "=", show from,  "TO", show to] ++ maybe "" (\x => " STEP " ++ show x) step
+    show (For v from to step) = unwords ["FOR", show v, "=", show from,  "TO", show to, "STEP", show step]
     show (Read v) = unwords ["READ", show v]
     show (Next v) = unwords ["NEXT", show v]
     show (Data bs) = unwords ["DATA", show bs] -- intersperse ", " (map show bs)

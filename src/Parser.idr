@@ -144,7 +144,7 @@ stmt = lexeme $ choice
   , Poke <$ bits8 0x97 <*> expr <* comma <*> expr
   , For <$ bits8 0x81
         <*> var0 <* eq <*> expr <* lexeme (bits8 0xa4) <*> expr
-        <*> lexeme (optional $ bits8 0xa9 *> numLit)
+        <*> lexeme (fromMaybe 1 <$> (optional $ bits8 0xa9 *> numLit))
   , Next <$ bits8 0x82 <*> var0
   , Print <$ bits8 0x99 <*> many expr <*> (maybe True (const False) <$> optional semi)
   , Clr <$ bits8 0x9c
