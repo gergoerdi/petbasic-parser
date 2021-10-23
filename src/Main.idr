@@ -78,7 +78,7 @@ initUI = do
   _ <- appendChild !body actions
 
   pure $ MkUI
-    { setPic = \pic =>  src img .= pic <+> ".png"
+    { setPic = \pic =>  src img .= "assets/pic/" <+> pic <+> ".png"
     , setText = \s => textContent text .= s
     , setPrompt = \s => textContent prompt .= s
     , setActions = \ss => do
@@ -119,7 +119,7 @@ partial main : IO ()
 main = runJS $ do
   ui <- initUI
 
-  p <- fetch "http://localhost/po/pokol.ppb"
+  p <- fetch "assets/pokol.ppb"
   p <- p `then_` arrayBuffer
   _ <- p `then_` \buf => do
     buf8 <- pure $ the UInt8Array $ cast buf
