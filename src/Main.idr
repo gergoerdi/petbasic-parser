@@ -62,7 +62,7 @@ initUI = do
   compass <- newElement Div [id =. "compass"]
   for_ (zipFrom 1 [("n", "É"), ("w", "NY"), ("e","K"), ("s", "D")]) $ \(i, (tag, label)) => do
     span <- newElement Span [id =. ("compass-" <+> tag)]
-    a <- newElement A  [href =. "", textContent =. label]
+    a <- newElement A  [href =. "#", textContent =. label]
     _ <- appendChild span a
     _ <- appendChild compass span
     pure ()
@@ -85,7 +85,7 @@ initUI = do
         oldActions <- elementList =<< children actions
         traverse_ (removeChild actions) oldActions
         for_ ss $ \action => do
-          a <- newElement A [textContent =. action, href =. ""]
+          a <- newElement A [textContent =. action, href =. "#"]
           li <- createElement Li
           ignore $ appendChild li a
           ignore $ appendChild actions li

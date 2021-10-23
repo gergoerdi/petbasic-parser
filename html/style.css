@@ -86,6 +86,7 @@ img {
 a {
     text-decoration: none;
     color: lightgreen;
+    display: block;
 }
 
 a:hover {
