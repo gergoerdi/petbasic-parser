@@ -63,6 +63,7 @@ mutual
     returnConts : List Cont
     nextConts : List Cont
     actions : List String
+    nextActionClears : Bool
 
   public export
   record R where
@@ -218,11 +219,17 @@ exec (Print ss newLine) = do
         StrVal bs => bs
         _        => []
   let str = concat $ map strVal vals
+  let newAction = do
+        clear <- gets nextActionClears
+        when clear $ modify $ record{ actions = empty, nextActionClears = False }
+        modify $ record { actions $= (<+> [sanitizeLine str]) }
   case str of
       (c::str') =>
-        if c == 158 then throwE . Message $ sanitizeLine str'
-        else modify $ record { actions $= (<+> [sanitizeLine str]) }
-      _ =>  modify $ record { actions $= (<+> [sanitizeLine str]) }
+        if c == 158 then do
+          modify $ record { nextActionClears = True }
+          throwE . Message $ sanitizeLine str'
+        else newAction
+      _ =>  newAction
   -- when newLine $ liftIO $ putStrLn ""
 exec (OnGoto e lines) = do
   NumVal val <- eval e
@@ -286,21 +293,7 @@ playerAction i = do
   setVar (mkV RealVar "MA" []) $ NumVal i
 
 playerInput : BASIC ()
-playerInput = do
-  acts <- gets actions
-  modify $ record{ actions = [] }
-  throwE $ WaitInput acts
-
--- playerInput = do
---   s <- get
---   printActions $ actions s
---   putStr "> "
-
---   s <- toLower <$> liftIO getLine
---   case words s of
---     ["do", n] => playerAction $ cast n
---     ["go", n] => playerMove $ cast n
---     _ => playerInput
+playerInput = throwE . WaitInput =<< gets actions
 
 execStmts : BASIC ()
 execStmts = do
@@ -395,6 +388,7 @@ startBASIC lines =
         , returnConts = empty
         , nextConts = empty
         , actions = empty
+        , nextActionClears = False
         }
 
       r = MkR
