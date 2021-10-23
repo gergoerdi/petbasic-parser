@@ -64,44 +64,111 @@ Show InputEvent where
   show (Move n) = "Move " <+> show n
   show (Action n) = "Action " <+> show n
 
-initUI : (InputEvent -> JSIO ()) -> JSIO UI
-initUI sink = do
-  img <- createElement Ime
+record App (m : Type -> Type) (input : Type) (output : Type) where
+  constructor MkApp
+  view : (input -> m ()) -> m (output -> m ())
+  model : input -> m output
+  initial : output
 
-  _ <- appendChild !body img
+runApp : HasIO m => App m input output -> m ()
+runApp app = do
+  box <- newIORef (\i => pure ())
+  refresh <- app.view (\i => readIORef box >>= ($ i))
+  writeIORef box $ \i => app.model i >>= refresh
+  refresh app.initial
 
-  compass <- newElement Div [id =. "compass"]
-  for_ (zipFrom 1 [("n", "É"), ("w", "NY"), ("e","K"), ("s", "D")]) $ \(i, (tag, label)) => do
-    span <- newElement Span [id =. ("compass-" <+> tag)]
-    a <- newElement A  [href =. "#", textContent =. label]
-    onclick a ?> sink $ Move i
-    _ <- appendChild span a
-    _ <- appendChild compass span
-    pure ()
-  _ <- appendChild !body compass
+data OutputEvent
+  = ChangePic String
+  | ChangeText String
+  | ChangeActions (List String)
+  | ChangePrompt String
 
-  text <- createElement Pre
-  _ <- appendChild !body text
+step : R -> BASIC () -> S -> (S, List Output)
+step r act s =
+  let (s', out) = runBASIC r s act
+      continue = case out of
+        WaitInput{} => False
+        EndGame{} => False
+        _ => True
+  in if continue then let (s'', outs) = step r execLine s' in (s'', out::outs) else (s', [out])
 
-  prompt <- newElement P [id =. "prompt"]
-  _ <- appendChild !body prompt
+app : List (LineNum, List1 Stmt) -> JSIO (App JSIO InputEvent (List OutputEvent))
+app lines = do
+  let (r, s) = startBASIC lines
+  ref <- newIORef s
+  let run : BASIC () -> JSIO (List Output)
+      run act = do
+        s <- readIORef ref
+        let (s', out) = step r act s
+        writeIORef ref s'
+        pure out
+  let fromOut : Output -> JSIO (List OutputEvent)
+      fromOut = \out => case out of
+        ChangeRoom pic txt => do
+          -- p <- fetch $ "assets/text/" <+> txt
+          -- p <- p `then_` arrayBuffer
+          -- _ <- p `then_` \buf => do
+          --   buf8 <- pure $ the UInt8Array $ cast buf
+          --   s <- textFromBuf buf8
+          --   setText ui s -- TODO: load text
+          --   pure $ ready ()
+          pure [ ChangePic pic
+               , ChangeText txt
+               , ChangePrompt "MIT TESZEL?"
+               ]
+        WaitInput actions => do
+          pure
+            [ ChangeActions actions
+            ]
+        Message s => do
+          pure [ChangePrompt s] -- TODO: wait for click?
+        EndGame => do
+          pure []
+  initial <- map concat $ traverse fromOut =<< run execLine
+  pure $ MkApp
+    { view = \sink => do
+        img <- createElement Ime
 
-  actions <- createElement Ul
-  _ <- appendChild !body actions
+        _ <- appendChild !body img
 
-  pure $ MkUI
-    { setPic = \pic =>  src img .= "assets/pic/" <+> pic <+> ".png"
-    , setText = \s => textContent text .= s
-    , setPrompt = \s => textContent prompt .= s
-    , setActions = \ss => do
-        oldActions <- elementList =<< children actions
-        traverse_ (removeChild actions) oldActions
-        for_ (zipFrom 1 ss) $ \(i, action) => do
-          a <- newElement A [textContent =. action, href =. "#"]
-          onclick a ?> sink $ Action i
-          li <- createElement Li
-          ignore $ appendChild li a
-          ignore $ appendChild actions li
+        compass <- newElement Div [id =. "compass"]
+        for_ (zipFrom 1 [("n", "É"), ("w", "NY"), ("e","K"), ("s", "D")]) $ \(i, (tag, label)) => do
+          span <- newElement Span [id =. ("compass-" <+> tag)]
+          a <- newElement A  [href =. "#", textContent =. label]
+          onclick a ?> sink $ Move i
+          _ <- appendChild span a
+          _ <- appendChild compass span
+          pure ()
+        _ <- appendChild !body compass
+
+        text <- createElement Pre
+        _ <- appendChild !body text
+
+        prompt <- newElement P [id =. "prompt"]
+        _ <- appendChild !body prompt
+
+        actions <- createElement Ul
+        _ <- appendChild !body actions
+
+        pure $ traverse_ $ \out => case (traceConsoleId $ the OutputEvent out) of
+          ChangePic pic => src img .= "assets/pic/" <+> pic <+> ".png"
+          ChangeText s => textContent text .= s
+          ChangePrompt s => textContent prompt .= s
+          ChangeActions ss => do
+            oldActions <- elementList =<< children actions
+            traverse_ (removeChild actions) oldActions
+            for_ (zipFrom 1 ss) $ \(i, action) => do
+              a <- newElement A [textContent =. action, href =. "#"]
+              onclick a ?> sink $ Action i
+              li <- createElement Li
+              ignore $ appendChild li a
+              ignore $ appendChild actions li
+    , model = \input => do
+        outs <- run $ case input of
+          Move n => playerMove n
+          Action n => playerAction n
+        map concat $ traverse fromOut outs
+    , initial = initial
     }
 
 textFromBuf : UInt8Array -> JSIO String
@@ -114,38 +181,29 @@ textFromBuf buf = unlines . filter (not . null) . lines . pack . map readable <$
         Nothing => pure []
         Just x => (x ::) <$> go (i + 1)
 
-processOutput : UI -> Output -> JSIO Bool
-processOutput ui out = case out of
-  ChangeRoom pic txt => do
-    setPic ui pic
-    p <- fetch $ "assets/text/" <+> txt
-    p <- p `then_` arrayBuffer
-    _ <- p `then_` \buf => do
-      buf8 <- pure $ the UInt8Array $ cast buf
-      s <- textFromBuf buf8
-      setText ui s -- TODO: load text
-      pure $ ready ()
-    pure True
-  WaitInput actions => do
-    setPrompt ui "MIT TESZEL?"
-    setActions ui actions
-    pure False
-  Message s => do
-    setPrompt ui s
-    pure True -- TODO: wait for click?
-  EndGame => do
-    pure False -- TODO
+-- processOutput : UI -> Output -> JSIO Bool
+-- processOutput ui out = case out of
+--   ChangeRoom pic txt => do
+--     setPic ui pic
+--     p <- fetch $ "assets/text/" <+> txt
+--     p <- p `then_` arrayBuffer
+--     _ <- p `then_` \buf => do
+--       buf8 <- pure $ the UInt8Array $ cast buf
+--       s <- textFromBuf buf8
+--       setText ui s -- TODO: load text
+--       pure $ ready ()
+--     pure True
+--   WaitInput actions => do
+--     setPrompt ui "MIT TESZEL?"
+--     setActions ui actions
+--     pure False
+--   Message s => do
+--     setPrompt ui s
+--     pure True -- TODO: wait for click?
+--   EndGame => do
+--     pure False -- TODO
 
-partial step : UI -> R -> BASIC () -> S -> JSIO S
-step ui r act s = do
-  let loop : BASIC () -> S -> JSIO S
-      loop act s = do
-        let (s', out) = runBASIC r s act
-        continue <- processOutput ui out
-        if continue then loop execLine s' else pure s'
-  loop act s
-
-partial main : IO ()
+main : IO ()
 main = runJS $ do
   p <- fetch "assets/pokol.ppb"
   p <- p `then_` arrayBuffer
@@ -154,11 +212,12 @@ main = runJS $ do
     putStrLn "Loaded"
     lines <- loadGame buf8
     putStrLn "Parsed"
-    let (r, s) = startBASIC lines
-    ref <- newIORef s
-    ui <- initUI $ \ev => printLn ev
-    let run = \act => readIORef ref >>= step ui r act >>= writeIORef ref
-    run execLine
+    app lines >>= runApp
+    -- let (r, s) = startBASIC lines
+    -- ref <- newIORef s
+    -- ui <- initUI $ \ev => printLn ev
+    -- let run = \act => readIORef ref >>= step ui r act >>= writeIORef ref
+    -- run execLine
     pure $ ready ()
 
   pure ()
