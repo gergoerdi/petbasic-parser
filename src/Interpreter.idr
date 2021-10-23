@@ -219,10 +219,11 @@ exec (Print ss newLine) = do
         StrVal bs => bs
         _        => []
   let str = concat $ map strVal vals
-  let newAction = do
+      action = sanitizeLine str
+  let newAction = unless (null . trim $ action) $ do
         clear <- gets nextActionClears
         when clear $ modify $ record{ actions = empty, nextActionClears = False }
-        modify $ record { actions $= (<+> [sanitizeLine str]) }
+        modify $ record { actions $= (<+> [action]) }
   case str of
       (c::str') =>
         if c == 158 then do
@@ -346,7 +347,8 @@ execLine = do
                 returnSub
                 throwE $ ChangeRoom pictTag textTag (if isTrue tv then 6 else 7)
             10200 => do
-                modify $ record { actions = empty }
+                -- modify $ record { actions = empty }
+                modify $ record{ nextActionClears = True }
                 returnSub
             10394 => do
                 returnSub
