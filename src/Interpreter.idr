@@ -131,8 +131,8 @@ evalBin Eq = \x,y => BoolVal $ x == y
 evalBin NEq = \x,y => BoolVal $ x /= y
 evalBin LT = \x,y => BoolVal $ x < y
 evalBin LE = \x,y => BoolVal $ x <= y
-evalBin GE = \x,y => BoolVal $ x > y
-evalBin GT = \x,y => BoolVal $ x >= y
+evalBin GT = \x,y => BoolVal $ x > y
+evalBin GE = \x,y => BoolVal $ x >= y
 evalBin And = \x,y => BoolVal $ isTrue x && isTrue y
 evalBin Or = \x,y => BoolVal $ isTrue x || isTrue y
 
