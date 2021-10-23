@@ -174,7 +174,7 @@ app lines = do
           ChangeActions ss => do
             oldActions <- elementList =<< children actions
             traverse_ (removeChild actions) oldActions
-            for_ (zipFrom 1 ss) $ \(i, action) => do
+            for_ (zipFrom 1 ss) $ \(i, action) => unless (null action) $ do
               a <- newElement A [textContent =. action, href =. "#"]
               onclick a ?> sink $ Action i
               li <- createElement Li
