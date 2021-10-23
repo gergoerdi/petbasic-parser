@@ -286,7 +286,10 @@ playerAction i = do
   setVar (mkV RealVar "MA" []) $ NumVal i
 
 playerInput : BASIC ()
-playerInput = throwE . WaitInput =<< gets actions
+playerInput = do
+  acts <- gets actions
+  modify $ record{ actions = [] }
+  throwE $ WaitInput acts
 
 -- playerInput = do
 --   s <- get
