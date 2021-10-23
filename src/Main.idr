@@ -1,8 +1,11 @@
 import Syntax
 import Binary
 import Interpreter
+import Text
 
+import Data.List
 import Data.List1
+import Data.String
 import Control.Monad.Reader
 import Control.Monad.State
 
@@ -91,18 +94,35 @@ initUI = do
           ignore $ appendChild actions li
     }
 
+textFromBuf : UInt8Array -> JSIO String
+textFromBuf buf = unlines . filter (not . null) . lines . pack . map readable <$> go 2
+  where
+    go : Bits32 -> JSIO (List Bits8)
+    go i = do
+      mx <- readIO buf i
+      case mx of
+        Nothing => pure []
+        Just x => (x ::) <$> go (i + 1)
+
 processOutput : UI -> Output -> JSIO Bool
 processOutput ui out = case out of
   ChangeRoom pic txt => do
     setPic ui pic
-    setText ui txt -- TODO: load text
+    p <- fetch $ "assets/text/" <+> txt
+    p <- p `then_` arrayBuffer
+    _ <- p `then_` \buf => do
+      buf8 <- pure $ the UInt8Array $ cast buf
+      s <- textFromBuf buf8
+      setText ui s -- TODO: load text
+      pure $ ready ()
     pure True
   WaitInput actions => do
+    setPrompt ui "MIT TESZEL?"
     setActions ui actions
     pure False
   Message s => do
     setPrompt ui s
-    pure True
+    pure True -- TODO: wait for click?
   EndGame => do
     pure False -- TODO
 
@@ -123,11 +143,10 @@ main = runJS $ do
   p <- p `then_` arrayBuffer
   _ <- p `then_` \buf => do
     buf8 <- pure $ the UInt8Array $ cast buf
-    printLn "Loaded"
+    putStrLn "Loaded"
     lines <- loadGame buf8
-    printLn "Parsed"
+    putStrLn "Parsed"
     let (r, s) = startBASIC lines
-    setPrompt ui "MIT TESZEL?"
     s' <- step ui r s
     pure $ ready ()
 

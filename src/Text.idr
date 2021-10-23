@@ -5,7 +5,7 @@ import Data.List
 import System.File.Buffer
 import Data.Buffer
 
-
+public export
 readable : Bits8 -> Char
 readable b = case the Char (cast b) of
   '\r' => '\n'

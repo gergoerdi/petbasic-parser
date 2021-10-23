@@ -111,6 +111,7 @@ data Stmt
   | End
   | Rem
 
+private
 readable : (Foldable f) => f Bits8 -> String
 readable = concat . map toChar . toList
   where
