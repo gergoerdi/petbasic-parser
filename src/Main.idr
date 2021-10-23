@@ -22,7 +22,7 @@ traceConsoleId : a -> a
 %foreign "browser:lambda:(_a, _b, x, y) => ((console.log(x),y))"
 traceConsole : a -> b -> b
 
-loadGame : (HasIO io) => UInt8Array -> io (List (LineNum, List1 Stmt))
+loadGame : HasIO io => UInt8Array -> io (List (LineNum, List1 Stmt))
 loadGame buf = liftIO $ evalStateT (the Bits32 0) $ runReaderT buf $ loadList loadLine
   where
     loadLine : Get (LineNum, List1 Stmt)
@@ -49,6 +49,10 @@ elementList coll = do
           else pure []
   loop 0
 
+zipFrom : Num a => a -> (1 xs : List b) -> List (a, b)
+zipFrom i [] = []
+zipFrom i (x :: xs) = (i, x) :: zipFrom (i + 1) xs
+
 initUI : JSIO UI
 initUI = do
   img <- createElement Ime
@@ -56,9 +60,9 @@ initUI = do
   _ <- appendChild !body img
 
   compass <- newElement Div [id =. "compass"]
-  for_ [(the String "n", "É"), ("s", "D"), ("e", "K"), ("w", "NY")] $ \(tag, lab) => do
+  for_ (zipFrom 1 [("n", "É"), ("w", "NY"), ("e","K"), ("s", "D")]) $ \(i, (tag, label)) => do
     span <- newElement Span [id =. ("compass-" <+> tag)]
-    a <- newElement A  [href =. "", textContent =. lab]
+    a <- newElement A  [href =. "", textContent =. label]
     _ <- appendChild span a
     _ <- appendChild compass span
     pure ()
