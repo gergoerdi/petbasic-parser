@@ -104,7 +104,7 @@ step r act s =
   in if continue then let (s'', outs) = step r execLine s' in (s'', out::outs) else (s', [out])
 
 textFromBuf : UInt8Array -> JSIO String
-textFromBuf buf = unlines . filter (not . null) . lines . pack . map readable <$> go 2
+textFromBuf buf = unlines . take 7 . filter (not . null) . lines . pack . map readable <$> go 2
   where
     go : Bits32 -> JSIO (List Bits8)
     go i = do
