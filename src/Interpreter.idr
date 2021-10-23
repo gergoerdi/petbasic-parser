@@ -194,7 +194,7 @@ index1OrLast n (x ::: xs) = case n of
     go Z     _ (x::xs)   = x
     go (S n) _ (x :: xs) = go n x xs
 
-partial exec : Stmt -> BASIC ()
+exec : Stmt -> BASIC ()
 exec (If cond thn) = do
   b <- isTrue <$> eval cond
   if b then exec thn else gotoNext
@@ -213,7 +213,11 @@ exec Return = returnSub
 exec (Print ss newLine) = do
   -- lineNum <- gets lineNum
   vals <- traverse eval ss
-  let str = concat $ map (\ (StrVal s) => s) vals
+  let strVal : Value -> List Bits8
+      strVal = \val => case val of
+        StrVal bs => bs
+        _        => []
+  let str = concat $ map strVal vals
   case str of
       (c::str') =>
         if c == 158 then throwE . Message $ sanitizeLine str'
@@ -221,11 +225,13 @@ exec (Print ss newLine) = do
       _ =>  modify $ record { actions $= (<+> [sanitizeLine str]) }
   -- when newLine $ liftIO $ putStrLn ""
 exec (OnGoto e lines) = do
-  (NumVal val) <- eval e
+  NumVal val <- eval e
+    | e => assert_total $ idris_crash $ unwords ["onGoto", show e]
   let line = index1OrLast (cast $ val - 1) lines
   goto line
 exec (OnGosub e lines) = do
-  (NumVal val) <- eval e
+  NumVal val <- eval e
+    | e => assert_total $ idris_crash $ unwords ["onGosub", show e]
   let line = index1OrLast (cast $ val - 1) lines
   gosub line
 -- exec (For v0 from to mstep) = do
@@ -293,7 +299,7 @@ playerInput = throwE . WaitInput =<< gets actions
 --     ["go", n] => playerMove $ cast n
 --     _ => playerInput
 
-partial execStmts : BASIC ()
+execStmts : BASIC ()
 execStmts = do
   k <- gets currLine
   let (lineNum, stmts, nextLine) = k
@@ -303,7 +309,7 @@ execStmts = do
   exec s
 
 export
-partial execLine : BASIC ()
+execLine : BASIC ()
 execLine = do
     s <- get
     let (lineNum, _, _) = currLine s
@@ -312,7 +318,7 @@ execLine = do
         case lineNum of
             132 => do
                 -- liftIO $ mapM_ putStrLn actions
-                idris_crash "DIE"
+                assert_total $ idris_crash "DIE" -- TODO
             3610 => do
                 -- liftIO $ putStrLn "PAUSE"
                 goto 3620
@@ -333,14 +339,13 @@ execLine = do
             10020 => do
                 ab <- getVar $ mkV RealVar "AB" []
                 fb <- getVar $ mkV RealVar "FB" []
-                let pictTag = pack [chr (cast . floor $ v) | NumVal v <- [ab, fb]]
-                text <- getVar $ mkV StrVar "T" []
-                let StrVal s = text
-                    textTag = pack . map (toLower . cast) $ s
-                    -- textFile = "disk/" <+> (pack . map (toLower . cast) $ s)
-                  -- textLines <- loadText textFile
-                  -- putStrLn $ unwords textLines
-                  -- traverse_ putStrLn textLines
+                let numVal = \val => case val of
+                      NumVal v => v
+                      _        => 0.0
+                let pictTag = pack . map (chr . cast . floor . numVal) $ [ab, fb]
+                StrVal s <- getVar $ mkV StrVar "T" []
+                  | _ => assert_total $ idris_crash "Type error?! In MY BASIC program?!"
+                let textTag = pack . map (toLower . cast) $ s
                 returnSub
                 throwE $ ChangeRoom pictTag textTag
             10200 => do
@@ -367,7 +372,7 @@ zipWithNext f [] = []
 zipWithNext f (x :: []) = [f x Nothing]
 zipWithNext f (x :: xs@(x' :: _)) = f x (Just x') :: zipWithNext f xs
 
-partial export
+export
 runBASIC : R -> S -> BASIC () -> (S, Output)
 runBASIC r s act =
   let (s', res) = runState s . runReaderT r . runEitherT $ act
