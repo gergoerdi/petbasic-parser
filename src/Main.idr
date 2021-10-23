@@ -28,6 +28,17 @@ traceConsoleId : a -> a
 %foreign "browser:lambda:(_a, _b, x, y) => ((console.log(x),y))"
 traceConsole : a -> b -> b
 
+sequenceP : List (Promise a) -> JSIO (Promise (List a))
+sequenceP [] = pure $ ready []
+sequenceP (p :: ps) = p `then_` \x => do
+  k <- sequenceP ps
+  k `then_` \xs => pure $ ready $ x :: xs
+
+concatP : List (Promise (List a)) -> JSIO (Promise (List a))
+concatP ps = do
+  p <- sequenceP ps
+  p `then_` \xss => pure $ ready $ concat xss
+
 loadGame : HasIO io => UInt8Array -> io (List (LineNum, List1 Stmt))
 loadGame buf = liftIO $ evalStateT (the Bits32 0) $ runReaderT buf $ loadList loadLine
   where
@@ -92,7 +103,17 @@ step r act s =
         _ => True
   in if continue then let (s'', outs) = step r execLine s' in (s'', out::outs) else (s', [out])
 
-app : List (LineNum, List1 Stmt) -> JSIO (App JSIO InputEvent (List OutputEvent))
+textFromBuf : UInt8Array -> JSIO String
+textFromBuf buf = unlines . filter (not . null) . lines . pack . map readable <$> go 2
+  where
+    go : Bits32 -> JSIO (List Bits8)
+    go i = do
+      mx <- readIO buf i
+      case mx of
+        Nothing => pure []
+        Just x => (x ::) <$> go (i + 1)
+
+app : List (LineNum, List1 Stmt) -> JSIO (App JSIO InputEvent (Promise (List OutputEvent)))
 app lines = do
   let (r, s) = startBASIC lines
   ref <- newIORef s
@@ -102,29 +123,26 @@ app lines = do
         let (s', out) = step r act s
         writeIORef ref s'
         pure out
-  let fromOut : Output -> JSIO (List OutputEvent)
+  let fromOut : Output -> JSIO (Promise (List OutputEvent))
       fromOut = \out => case out of
         ChangeRoom pic txt => do
-          -- p <- fetch $ "assets/text/" <+> txt
-          -- p <- p `then_` arrayBuffer
-          -- _ <- p `then_` \buf => do
-          --   buf8 <- pure $ the UInt8Array $ cast buf
-          --   s <- textFromBuf buf8
-          --   setText ui s -- TODO: load text
-          --   pure $ ready ()
-          pure [ ChangePic pic
-               , ChangeText txt
-               , ChangePrompt "MIT TESZEL?"
-               ]
+          p <- fetch $ "assets/text/" <+> txt
+          p <- p `then_` arrayBuffer
+          p `then_` \buf => do
+            buf8 <- pure $ the UInt8Array $ cast buf
+            s <- textFromBuf buf8
+            pure $ ready $
+              [ ChangePic pic
+              , ChangeText s
+              , ChangePrompt "MIT TESZEL?"
+              ]
         WaitInput actions => do
-          pure
-            [ ChangeActions actions
-            ]
+          pure $ ready [ChangeActions actions]
         Message s => do
-          pure [ChangePrompt s] -- TODO: wait for click?
+          pure $ ready [ChangePrompt s] -- TODO: wait for click?
         EndGame => do
-          pure []
-  initial <- map concat $ traverse fromOut =<< run execLine
+          pure $ ready []
+  initial <- concatP =<< (traverse fromOut =<< run execLine)
   pure $ MkApp
     { view = \sink => do
         img <- createElement Ime
@@ -149,8 +167,7 @@ app lines = do
 
         actions <- createElement Ul
         _ <- appendChild !body actions
-
-        pure $ traverse_ $ \out => case (traceConsoleId $ the OutputEvent out) of
+        pure $ \p => ignore $ (p `then_`) $ \outs => (ready () <$) $ for_ outs $ \out => case out of
           ChangePic pic => src img .= "assets/pic/" <+> pic <+> ".png"
           ChangeText s => textContent text .= s
           ChangePrompt s => textContent prompt .= s
@@ -167,41 +184,9 @@ app lines = do
         outs <- run $ case input of
           Move n => playerMove n
           Action n => playerAction n
-        map concat $ traverse fromOut outs
+        concatP =<< traverse fromOut outs
     , initial = initial
     }
-
-textFromBuf : UInt8Array -> JSIO String
-textFromBuf buf = unlines . filter (not . null) . lines . pack . map readable <$> go 2
-  where
-    go : Bits32 -> JSIO (List Bits8)
-    go i = do
-      mx <- readIO buf i
-      case mx of
-        Nothing => pure []
-        Just x => (x ::) <$> go (i + 1)
-
--- processOutput : UI -> Output -> JSIO Bool
--- processOutput ui out = case out of
---   ChangeRoom pic txt => do
---     setPic ui pic
---     p <- fetch $ "assets/text/" <+> txt
---     p <- p `then_` arrayBuffer
---     _ <- p `then_` \buf => do
---       buf8 <- pure $ the UInt8Array $ cast buf
---       s <- textFromBuf buf8
---       setText ui s -- TODO: load text
---       pure $ ready ()
---     pure True
---   WaitInput actions => do
---     setPrompt ui "MIT TESZEL?"
---     setActions ui actions
---     pure False
---   Message s => do
---     setPrompt ui s
---     pure True -- TODO: wait for click?
---   EndGame => do
---     pure False -- TODO
 
 main : IO ()
 main = runJS $ do
@@ -213,11 +198,6 @@ main = runJS $ do
     lines <- loadGame buf8
     putStrLn "Parsed"
     app lines >>= runApp
-    -- let (r, s) = startBASIC lines
-    -- ref <- newIORef s
-    -- ui <- initUI $ \ev => printLn ev
-    -- let run = \act => readIORef ref >>= step ui r act >>= writeIORef ref
-    -- run execLine
     pure $ ready ()
 
   pure ()
