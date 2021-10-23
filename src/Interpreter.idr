@@ -74,7 +74,7 @@ mutual
   data Output
     = EndGame
     | Message String
-    | ChangeRoom String String
+    | ChangeRoom String String Nat
     | WaitInput (List String)
 
   public export -- XXX how do we export just the Monad &c. implementations?
@@ -85,7 +85,7 @@ export
 Show Output where
   show EndGame = "EndGame"
   show (Message s) = "Message " <+> s
-  show (ChangeRoom pictTag textTag) = unwords ["ChangeRoom", show pictTag, show textTag]
+  show (ChangeRoom pictTag textTag lines) = unwords ["ChangeRoom", show pictTag, show textTag, show lines]
   show (WaitInput actions) = unlines $ "WaitInput" :: map (" * " <+>) actions
 
 modify : (S -> S) -> BASIC ()
@@ -341,9 +341,10 @@ execLine = do
                 let pictTag = pack . map (chr . cast . floor . numVal) $ [ab, fb]
                 StrVal s <- getVar $ mkV StrVar "T" []
                   | _ => assert_total $ idris_crash "Type error?! In MY BASIC program?!"
+                tv <- getVar $ mkV RealVar "TV" []
                 let textTag = pack . map (toLower . cast) $ s
                 returnSub
-                throwE $ ChangeRoom pictTag textTag
+                throwE $ ChangeRoom pictTag textTag (if isTrue tv then 6 else 7)
             10200 => do
                 modify $ record { actions = empty }
                 returnSub

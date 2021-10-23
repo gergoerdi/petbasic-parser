@@ -103,8 +103,8 @@ step r act s =
         _ => True
   in if continue then let (s'', outs) = step r execLine s' in (s'', out::outs) else (s', [out])
 
-textFromBuf : UInt8Array -> JSIO String
-textFromBuf buf = unlines . take 7 . filter (not . null) . lines . pack . map readable <$> go 2
+textFromBuf : Nat -> UInt8Array -> JSIO String
+textFromBuf n buf = unlines . take n . filter (not . null) . lines . pack . map readable <$> go 2
   where
     go : Bits32 -> JSIO (List Bits8)
     go i = do
@@ -125,12 +125,12 @@ app lines = do
         pure out
   let fromOut : Output -> JSIO (Promise (List OutputEvent))
       fromOut = \out => case out of
-        ChangeRoom pic txt => do
+        ChangeRoom pic txt n => do
           p <- fetch $ "assets/text/" <+> txt
           p <- p `then_` arrayBuffer
           p `then_` \buf => do
             buf8 <- pure $ the UInt8Array $ cast buf
-            s <- textFromBuf buf8
+            s <- textFromBuf n buf8
             pure $ ready $
               [ ChangePic pic
               , ChangeText s
