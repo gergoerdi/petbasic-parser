@@ -141,7 +141,7 @@ app lines = do
         Message s => do
           pure $ ready [ChangePrompt s] -- TODO: wait for click?
         EndGame => do
-          pure $ ready []
+          pure $ ready [] -- TODO: wait for click, then end game
   initial <- concatP =<< (traverse fromOut =<< run execLine)
   pure $ MkApp
     { view = \sink => do

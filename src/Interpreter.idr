@@ -231,7 +231,6 @@ exec (Print ss newLine) = do
           throwE . Message $ sanitizeLine str'
         else newAction
       _ =>  newAction
-  -- when newLine $ liftIO $ putStrLn ""
 exec (OnGoto e lines) = do
   NumVal val <- eval e
     | e => assert_total $ idris_crash $ unwords ["onGoto", show e]
@@ -314,11 +313,13 @@ execLine = do
         -- printLn lineNum
         case lineNum of
             132 => do
-                -- liftIO $ mapM_ putStrLn actions
-                assert_total $ idris_crash "DIE" -- TODO
+                throwE EndGame -- DIE
             3610 => do
                 -- liftIO $ putStrLn "PAUSE"
                 goto 3620
+            4540 => do
+                -- TODO: wait for click
+                goto 4544
             9015 => do
                 -- liftIO $ putStrLn "CLRSCR"
                 returnSub
