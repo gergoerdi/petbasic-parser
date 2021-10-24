@@ -2,6 +2,10 @@ import Syntax
 import Binary
 import Interpreter
 import Text
+import Utils
+
+import JS.App
+import JS.Promise.Extra
 
 import Data.List
 import Data.List1
@@ -22,71 +26,16 @@ import Data.IORef
 %hide Web.Dom.Alias.Output
 %hide Types.InputEvent
 
-%foreign "browser:lambda:(_a, x) => ((console.log(x),x))"
-traceConsoleId : a -> a
-
-%foreign "browser:lambda:(_a, _b, x, y) => ((console.log(x),y))"
-traceConsole : a -> b -> b
-
-sequenceP : List (Promise a) -> JSIO (Promise (List a))
-sequenceP [] = pure $ ready []
-sequenceP (p :: ps) = p `then_` \x => do
-  k <- sequenceP ps
-  k `then_` \xs => pure $ ready $ x :: xs
-
-concatP : List (Promise (List a)) -> JSIO (Promise (List a))
-concatP ps = do
-  p <- sequenceP ps
-  p `then_` \xss => pure $ ready $ concat xss
-
 loadGame : HasIO io => UInt8Array -> io (List (LineNum, List1 Stmt))
 loadGame buf = liftIO $ evalStateT (the Bits32 0) $ runReaderT buf $ loadList loadLine
   where
     loadLine : Get (LineNum, List1 Stmt)
     loadLine = (,) <$> load <*> loadList1 load
 
-record UI where
-  constructor MkUI
-  setPic : String -> JSIO ()
-  setText : String -> JSIO ()
-  setPrompt : String -> JSIO ()
-  setActions : List String -> JSIO ()
-
-elementList : HTMLCollection -> JSIO (List Element)
-elementList coll = do
-  n <- HTMLCollection.length coll
-  let loop : Bits32 -> JSIO (List Element)
-      loop i = do
-        if i < n
-          then do
-            mx <- HTMLCollection.item coll i
-            case mx of
-              Nothing => pure []
-              Just x => (x ::) <$> loop (i + 1)
-          else pure []
-  loop 0
-
-zipFrom : Num a => a -> (1 xs : List b) -> List (a, b)
-zipFrom i [] = []
-zipFrom i (x :: xs) = (i, x) :: zipFrom (i + 1) xs
-
 data InputEvent = Move Number | Action Number
 Show InputEvent where
   show (Move n) = "Move " <+> show n
   show (Action n) = "Action " <+> show n
-
-record App (m : Type -> Type) (input : Type) (output : Type) where
-  constructor MkApp
-  view : (input -> m ()) -> m (output -> m ())
-  model : input -> m output
-  initial : output
-
-runApp : HasIO m => App m input output -> m ()
-runApp app = do
-  box <- newIORef (\i => pure ())
-  refresh <- app.view (\i => readIORef box >>= ($ i))
-  writeIORef box $ \i => app.model i >>= refresh
-  refresh app.initial
 
 data OutputEvent
   = ChangePic String
