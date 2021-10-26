@@ -17,8 +17,6 @@ import Web.Html
 import Web.Raw.UIEvents
 import Web.Raw.Fetch
 
-%hide Array.fromString
-
 loadGame : HasIO io => UInt8Array -> io (List (LineNum, List1 Stmt))
 loadGame buf = liftIO $ evalStateT (the Bits32 0) $ runReaderT buf $ getList getLine
   where

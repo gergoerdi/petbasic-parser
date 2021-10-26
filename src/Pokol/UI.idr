@@ -25,7 +25,6 @@ import Web.Raw.Fetch
 
 import Data.IORef
 
-%hide Array.fromString
 %hide Web.Dom.Alias.Output
 %hide Types.InputEvent
 
@@ -93,7 +92,7 @@ app lines = do
   initial <- concatP =<< (traverse fromOutput =<< run execLine)
   pure $ MkApp
     { view = \sink => do
-        img <- createElement Ime
+        img <- createElement Img
 
         _ <- appendChild !body img
 
