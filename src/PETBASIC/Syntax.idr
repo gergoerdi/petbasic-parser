@@ -1,4 +1,4 @@
-module Syntax
+module PETBASIC.Syntax
 
 import Data.List1
 import Data.String

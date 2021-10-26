@@ -1,4 +1,4 @@
-module Text
+module Pokol.Text
 
 import Data.String
 import Data.List

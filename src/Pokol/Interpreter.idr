@@ -1,7 +1,7 @@
-module Interpreter
+module Pokol.Interpreter
 
-import Syntax
-import Text
+import PETBASIC.Syntax
+import Pokol.Text
 
 import Data.SortedMap
 import Data.List
@@ -11,6 +11,8 @@ import Control.Monad.Reader
 import Control.Monad.State
 import Control.Monad.Either
 import Data.String
+
+import Debug.Trace
 
 data V = MkV Var0 (List Int16)
 
@@ -330,6 +332,7 @@ execLine = do
                 -- liftIO $ putStrLn "copy protection"
                 returnSub
             9790 => do
+                trace "PAUSE" $ pure ()
                 -- liftIO $ putStrLn "PAUSE"
                 returnSub
             9970 => do

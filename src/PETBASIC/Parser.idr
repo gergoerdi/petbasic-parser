@@ -1,6 +1,6 @@
-module Parser
+module PETBASIC.Parser
 
-import Syntax
+import PETBASIC.Syntax
 import Text.Lexer
 import Text.Parser
 import Text.Parser.Expression

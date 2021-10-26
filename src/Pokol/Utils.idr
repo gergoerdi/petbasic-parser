@@ -1,4 +1,4 @@
-module Utils
+module Pokol.Utils
 
 import JS
 import Web.Dom
