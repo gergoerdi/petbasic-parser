@@ -11,7 +11,11 @@ body {
     font-weight: bold;
     font-size: 16pt;
 
+    position: relative;
+
     max-width: 640;
+    min-height: 560;
+    max-height: 560;
     margin-left: auto;
     margin-right: auto;
     margin-top: 32;
@@ -25,6 +29,8 @@ pre {
     width: fit-content;
     margin-left: auto;
     margin-right: auto;
+    line-height: 1.2em;
+    height: calc(7*1.2em);
 }
 
 img {
@@ -98,6 +104,12 @@ a:hover {
     /* text-transform: capitalize; */
     /* float: left; */
     display: block;
+}
+
+#bottom {
+    position: absolute;
+    bottom: 0;
+    width: 100%;
 }
 
 * {

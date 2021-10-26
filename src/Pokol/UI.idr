@@ -109,11 +109,14 @@ app lines = do
         text <- createElement Pre
         _ <- appendChild !body text
 
+        bottom <- newElement Div [id =. "bottom"]
+        _ <- appendChild !body bottom
+
         prompt <- newElement P [id =. "prompt"]
-        _ <- appendChild !body prompt
+        _ <- appendChild bottom prompt
 
         actions <- createElement Ul
-        _ <- appendChild !body actions
+        _ <- appendChild bottom actions
         pure $ \p => ignore $ (p `then_`) $ \outs => (ready () <$) $ for_ outs $ \out => case out of
           ChangePic pic => src img .= "assets/pic/" <+> pic <+> ".png"
           ChangeText s => textContent text .= s
