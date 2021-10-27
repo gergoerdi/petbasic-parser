@@ -108,8 +108,14 @@ app lines = do
         Just prompt <- (castTo HTMLParagraphElement =<<) <$> getElementById !document "prompt"
           | _ => assert_total $ idris_crash "HTML mismatch: prompt"
 
+        Just checkbox <- (castTo HTMLInputElement =<<) <$> getElementById !document "tab-inventory"
+          | _ => assert_total $ idris_crash "HTML mismatch: tab-inventory"
+        onkeydown !document !> \ev => when (not !(repeat ev) && !(key ev) == "t") $ checked checkbox %= not
+
         pure $ \p => ignore $ (p `then_`) $ \outs => (ready () <$) $ for_ outs $ \out => case out of
-          ChangePic picname => src pic .= "assets/pic/" <+> picname <+> ".png"
+          ChangePic picname => do
+            src pic .= "assets/pic/" <+> picname <+> ".png"
+            checked checkbox .= False
           ChangeText s => textContent text .= s
           ChangePrompt s => textContent prompt .= s
           ChangeActions ss => do

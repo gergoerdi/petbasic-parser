@@ -1,0 +1,44 @@
+input { display: none; }
+
+.perspective {
+    display: inline-block;
+    perspective: 76em;
+    perspective-origin: 168px 50px;
+}
+
+.cube {
+    display: inline-block;
+    position: relative;
+    height: 168px;
+    transform-origin: 0 84px;
+    transform-style: preserve-3d;
+    transition: transform 0.5s;
+    transition-timing-function: cubic-bezier(0.5, -0.5, 0.5, 1.5);
+
+}
+
+.cube > label > div {
+    width: 384px;
+    height: 168px;
+    position: absolute;
+    background: black;
+    /* overflow-y: clip; */
+    overflow-y: overlay;
+}
+
+label:nth-child(1) div {
+  transform: translateZ(84px);
+}
+
+label:nth-child(2) div {
+  transform: rotateX(-90deg) translateY(84px);
+  transform-origin: bottom left;
+}
+
+#tab-inventory:unchecked ~ .perspective .cube {
+    transform: translateZ(-84px) rotateX(0deg);
+}
+
+#tab-inventory:checked ~ .perspective .cube {
+    transform: translateZ(-84px) rotateX(90deg);
+}

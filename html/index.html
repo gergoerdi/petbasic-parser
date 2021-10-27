@@ -2,10 +2,23 @@
  <head>
    <title>A Pokol Angyala</title>
    <link rel="stylesheet" href="style.css" />
+   <link rel="stylesheet" href="tabs.css" />
    <meta charset='utf-8'>
  </head>
  <body>
-   <img draggable="false" id="pic">
+   <input type="checkbox" name="tabs" id="tab-inventory"/>
+   <div class="perspective">
+     <div class="cube">
+       <label for="tab-inventory">
+         <div>
+           <img draggable="false" id="pic"></img>
+         </div>
+       </label>
+       <label for="tab-inventory">
+         <div id="inventory"></div>
+       </label>
+     </div>
+   </div>
    <div id="compass">
      <span id="compass-n"><a href="#">É</a></span>
      <span id="compass-s"><a href="#">D</a></span>
