@@ -76,7 +76,7 @@ mutual
   data Output
     = EndGame
     | Message String
-    | ChangeRoom String String Nat
+    | ChangeRoom Nat String Nat
     | WaitInput (List String)
 
   public export -- XXX how do we export just the Monad &c. implementations?
@@ -340,10 +340,11 @@ execLine = do
             10020 => do
                 ab <- getVar $ mkV RealVar "AB" []
                 fb <- getVar $ mkV RealVar "FB" []
-                let numVal = \val => case val of
-                      NumVal v => v
-                      _        => 0.0
-                let pictTag = pack . map (chr . cast . floor . numVal) $ [ab, fb]
+                let numVal : Value -> Nat
+                    numVal = \val => case val of
+                      NumVal v => cast $ v - 0x30
+                      _        => 0
+                let pictTag = numVal ab * 10 + numVal fb
                 StrVal s <- getVar $ mkV StrVar "T" []
                   | _ => assert_total $ idris_crash "Type error?! In MY BASIC program?!"
                 tv <- getVar $ mkV RealVar "TV" []

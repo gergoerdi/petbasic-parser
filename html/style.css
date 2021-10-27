@@ -1,7 +1,7 @@
-@font-face {
-    font-family: 'PetMe64';
-    src: url('PetMe64.ttf');
-}
+/* @font-face { */
+/*     font-family: 'PetMe64'; */
+/*     src: url('PetMe64.ttf'); */
+/* } */
 
 body {
     background: black;
@@ -33,10 +33,12 @@ pre {
     height: calc(7*1.2em);
 }
 
-img {
+#pic {
     width: 384px;
     height: 168px;
     user-drag: none;
+    object-fit: cover;
+    object-position: 0px -0px;
 }
 
 #compass {

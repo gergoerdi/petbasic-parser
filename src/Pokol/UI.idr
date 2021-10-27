@@ -22,6 +22,7 @@ import Web.Dom
 import Web.Html
 import Web.Raw.UIEvents
 import Web.Raw.Fetch
+import Web.Raw.Css
 
 import Data.IORef
 
@@ -44,7 +45,7 @@ Show InputEvent where
   show (Action n) = "Action " <+> show n
 
 data OutputEvent
-  = ChangePic String
+  = ChangePic Nat
   | ChangeText String
   | ChangeActions (List String)
   | ChangePrompt String
@@ -113,8 +114,10 @@ app lines = do
         onkeydown !document !> \ev => when (not !(repeat ev) && !(key ev) == "t") $ checked checkbox %= not
 
         pure $ \p => ignore $ (p `then_`) $ \outs => (ready () <$) $ for_ outs $ \out => case out of
-          ChangePic picname => do
-            src pic .= "assets/pic/" <+> picname <+> ".png"
+          ChangePic idx => do
+            let offset = the Int (cast idx - 1) * -168
+            CSSStyleDeclaration.setProperty' !(style pic) "object-position" $
+              unwords ["0", show offset <+> "px"]
             checked checkbox .= False
           ChangeText s => textContent text .= s
           ChangePrompt s => textContent prompt .= s
