@@ -115,9 +115,7 @@ app lines = do
 
         pure $ \p => ignore $ (p `then_`) $ \outs => (ready () <$) $ for_ outs $ \out => case out of
           ChangePic idx => do
-            let offset = the Int (cast idx - 1) * -168
-            CSSStyleDeclaration.setProperty' !(style pic) "object-position" $
-              unwords ["0", show offset <+> "px"]
+            CSSStyleDeclaration.setProperty' !(style pic) "--pic-idx" $ show idx
             checked checkbox .= False
           ChangeText s => textContent text .= s
           ChangePrompt s => textContent prompt .= s

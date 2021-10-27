@@ -38,7 +38,9 @@ pre {
     height: 168px;
     user-drag: none;
     object-fit: cover;
-    object-position: 0px -0px;
+    object-position: var(--pic-offset);
+    --pic-idx: 1;
+    --pic-offset: 0px calc(-1 * (var(--pic-idx) - 1) * 168px);
 }
 
 #compass {
