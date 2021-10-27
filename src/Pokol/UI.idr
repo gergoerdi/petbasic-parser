@@ -92,44 +92,37 @@ app lines = do
   initial <- concatP =<< (traverse fromOutput =<< run execLine)
   pure $ MkApp
     { view = \sink => do
-        img <- createElement Img
+        Just pic <- (castTo HTMLImageElement =<<) <$> getElementById !document "pic"
+          | _ => assert_total $ idris_crash "HTML mismatch: pic"
 
-        _ <- appendChild !body img
-
-        compass <- newElement Div [id =. "compass"]
-        for_ (zipFrom 1 [("n", "É"), ("w", "NY"), ("e","K"), ("s", "D")]) $ \(i, (tag, label)) => do
-          span <- newElement Span [id =. ("compass-" <+> tag)]
-          a <- newElement A  [href =. "#", textContent =. label]
+        for_ (zipFrom 1 ["n", "w", "e", "s"]) $ \(i, tag) => do
+          Just span <- (castTo HTMLSpanElement =<<) <$> getElementById !document ("compass-" <+> tag)
+            | _ => assert_total $ idris_crash "HTML mismatch: compass"
+          [Just a] <- map (castTo HTMLAnchorElement) <$> (elementList =<< getElementsByTagName span "a")
+            | _ => assert_total $ idris_crash "HTML mismatch: compass"
           onclick a ?> sink $ Move i
-          _ <- appendChild span a
-          _ <- appendChild compass span
-          pure ()
-        _ <- appendChild !body compass
 
-        text <- createElement Pre
-        _ <- appendChild !body text
+        [Just text] <- map (castTo HTMLPreElement) <$> (elementList =<< getElementsByTagName !document "pre")
+          | _ => assert_total $ idris_crash "HTML mismatch: text"
 
-        bottom <- newElement Div [id =. "bottom"]
-        _ <- appendChild !body bottom
+        Just prompt <- (castTo HTMLParagraphElement =<<) <$> getElementById !document "prompt"
+          | _ => assert_total $ idris_crash "HTML mismatch: prompt"
 
-        prompt <- newElement P [id =. "prompt"]
-        _ <- appendChild bottom prompt
-
-        actions <- createElement Ul
-        _ <- appendChild bottom actions
         pure $ \p => ignore $ (p `then_`) $ \outs => (ready () <$) $ for_ outs $ \out => case out of
-          ChangePic pic => src img .= "assets/pic/" <+> pic <+> ".png"
+          ChangePic picname => src pic .= "assets/pic/" <+> picname <+> ".png"
           ChangeText s => textContent text .= s
           ChangePrompt s => textContent prompt .= s
           ChangeActions ss => do
-            oldActions <- elementList =<< children actions
-            traverse_ (removeChild actions) oldActions
+            Just oldActions <- (castTo HTMLUListElement =<<) <$> getElementById !document "actions"
+              | _ => assert_total $ idris_crash "HTML mismatch: actions"
+            newActions <- newElement Ul [id =. "actions"]
             for_ (zipFrom 1 ss) $ \(i, action) => unless (null action) $ do
               a <- newElement A [textContent =. action, href =. "#"]
               onclick a ?> sink $ Action i
               li <- createElement Li
               ignore $ appendChild li a
-              ignore $ appendChild actions li
+              ignore $ appendChild newActions li
+              oldActions `replaceWith` [inject $ newActions :> Node]
     , model = \input => do
         outs <- run $ case input of
           Move n => playerMove n

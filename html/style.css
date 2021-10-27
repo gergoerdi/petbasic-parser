@@ -34,7 +34,9 @@ pre {
 }
 
 img {
-    width: 384;
+    width: 384px;
+    height: 168px;
+    user-drag: none;
 }
 
 #compass {
@@ -99,11 +101,27 @@ a:hover {
     background: darkgoldenrod;
 }
 
-#inventory {
-    text-transform: uppercase; 
-    /* text-transform: capitalize; */
-    /* float: left; */
+label {
+    cursor: pointer;
+}
+
+#inventory::before {
+    content: "Tárgyaid:";
     display: block;
+    column-span: all;
+    top: 0;
+    position: sticky;
+    background: black;
+}
+
+#inventory {
+    text-transform: uppercase;
+    /* text-transform: capitalize; */
+    outline: 3px solid #4040ff;
+}
+
+#inventory ul {
+    column-count: 2;
 }
 
 #bottom {
