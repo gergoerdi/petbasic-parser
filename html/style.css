@@ -40,7 +40,39 @@ pre {
     object-fit: cover;
     object-position: var(--pic-offset);
     --pic-idx: 1;
+    --pic-idx-prev: 1;
     --pic-offset: 0px calc(-1 * (var(--pic-idx) - 1) * 168px);
+    --pic-offset-prev: 0px calc(-1 * (var(--pic-idx-prev) - 1) * 168px);
+
+    animation-duration: 0.25s;
+    animation-name: fadeinout;
+    animation-timing-function: ease-in-out;
+}
+
+.pic-trigger {
+    animation: none !important;
+}
+
+@keyframes fadeinout {
+    from {
+        object-position: var(--pic-offset-prev);
+        opacity: 100%;
+    }
+
+    49% {
+        object-position: var(--pic-offset-prev);
+        opacity: 0%;
+    }
+
+    51% {
+        object-position: var(--pic-offset);
+        opacity: 0%;
+    }
+
+    to {
+        object-position: var(--pic-offset);
+        opacity: 100%;
+    }
 }
 
 #compass {

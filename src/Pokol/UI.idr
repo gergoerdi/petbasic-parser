@@ -29,6 +29,9 @@ import Data.IORef
 %hide Web.Dom.Alias.Output
 %hide Types.InputEvent
 
+%foreign "browser:lambda:(_a, x) => x.offsetWidth"
+export prim__offsetWidth : a -> PrimIO Int
+
 textFromBuf : Nat -> UInt8Array -> JSIO String
 textFromBuf n buf = unlines . take n . filter (not . null) . lines . pack . map readable <$> go 2
   where
@@ -115,8 +118,15 @@ app lines = do
 
         pure $ \p => ignore $ (p `then_`) $ \outs => (ready () <$) $ for_ outs $ \out => case out of
           ChangePic idx => do
-            CSSStyleDeclaration.setProperty' !(style pic) "--pic-idx" $ show idx
-            checked checkbox .= False
+            sty <- style pic
+            current <- trim <$> CSSStyleDeclaration.getPropertyValue !(getComputedStyle' !window pic) "--pic-idx"
+            unless (current == show idx) $ do
+              CSSStyleDeclaration.setProperty' sty "--pic-idx-prev" current
+              CSSStyleDeclaration.setProperty' sty "--pic-idx" $ show idx
+              _ <- toggle !(classList pic) "pic-trigger" (Def True)
+              _ <- primIO $ prim__offsetWidth pic
+              _ <- toggle !(classList pic) "pic-trigger" (Def False)
+              checked checkbox .= False
           ChangeText s => textContent text .= s
           ChangePrompt s => textContent prompt .= s
           ChangeActions ss => do
