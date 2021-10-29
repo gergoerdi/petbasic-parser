@@ -80,8 +80,8 @@ mutual
     | WaitInput (List String)
 
   public export -- XXX how do we export just the Monad &c. implementations?
-  BASIC : Type -> Type
-  BASIC = EitherT Output (ReaderT R (State S))
+  BASIC : (Type -> Type) -> Type -> Type
+  BASIC m = EitherT Output (ReaderT R (StateT S m))
 
 export
 Show Output where
@@ -90,7 +90,7 @@ Show Output where
   show (ChangeRoom pictTag textTag lines) = unwords ["ChangeRoom", show pictTag, show textTag, show lines]
   show (WaitInput actions) = unlines $ "WaitInput" :: map (" * " <+>) actions
 
-modify : (S -> S) -> BASIC ()
+modify : Monad m => (S -> S) -> BASIC m ()
 modify = Control.Monad.State.modify
 
 isTrue : Value -> Bool
@@ -117,7 +117,7 @@ unNum : (Number -> Number) -> (Value -> Value)
 unNum f (NumVal x) = NumVal $ f x
 unNum f _          = NumVal (0/0)
 
-getVar : V -> BASIC Value
+getVar : Monad m => V -> BASIC m Value
 getVar var@(MkV var0 idx) = do
   value <- gets $ SortedMap.lookup var . vars
   pure $ case (value, var0) of
@@ -140,10 +140,10 @@ evalBin And = \x,y => BoolVal $ isTrue x && isTrue y
 evalBin Or = \x,y => BoolVal $ isTrue x || isTrue y
 
 mutual
-  var : Var -> BASIC V
+  var : Monad m => Var -> BASIC m V
   var (MkVar v0 is) = MkV v0 <$> traverse (map (cast . floor . toFloat) . eval) is
 
-  eval : Expr -> BASIC Value
+  eval : Monad m => Expr -> BASIC m Value
   eval (VarE v) = getVar =<< var v
   eval (NumLitE n) = pure $ NumVal n
   eval (StrLitE bs) = pure $ StrVal bs
@@ -151,7 +151,7 @@ mutual
   eval (NegE x) = unNum negate <$> eval x
   eval e@(FunE f x) = assert_total $ idris_crash $ show e
 
-setVar : V -> Value -> BASIC ()
+setVar : Monad m => V -> Value -> BASIC m ()
 setVar var value = modify $ record { vars $= SortedMap.insert var value }
 
 loadLine : LineMap -> LineNum -> Cont
@@ -159,18 +159,18 @@ loadLine lineMap lineNum = case lookup lineNum lineMap of
   Nothing => assert_total $ idris_crash $ unwords ["loadLine", show lineNum]
   Just (ss, nextLine) => (lineNum, toList ss, nextLine)
 
-goto : LineNum -> BASIC ()
+goto : Monad m => LineNum -> BASIC m ()
 goto lineNum = do
   lineMap <- asks lineMap
   modify $ record { currLine = loadLine lineMap lineNum }
 
-gosub : LineNum -> BASIC ()
+gosub : Monad m => LineNum -> BASIC m ()
 gosub lineNum = do
   k <- gets currLine
   modify $ record { returnConts $= (k::) }
   goto lineNum
 
-returnSub : BASIC ()
+returnSub : Monad m => BASIC m ()
 returnSub = do
   (k :: ks) <- gets returnConts
     | [] => assert_total $ idris_crash "gosub stack underflow"
@@ -179,7 +179,7 @@ returnSub = do
 partial unsafeTail : List a -> List a
 unsafeTail (x::xs) = xs
 
-gotoNext : BASIC ()
+gotoNext : Monad m => BASIC m ()
 gotoNext = do
   k <- gets currLine
   let (_, _, nextLine) = k
@@ -197,7 +197,7 @@ index1OrLast n (x ::: xs) = case n of
     go Z     _ (x::xs)   = x
     go (S n) _ (x :: xs) = go n x xs
 
-exec : Stmt -> BASIC ()
+exec : Monad m => Stmt -> BASIC m ()
 exec (If cond thn) = do
   b <- isTrue <$> eval cond
   if b then exec thn else gotoNext
@@ -283,21 +283,21 @@ printActions actions = for_ (numberedFrom 1 actions) $ \(i, s) => do
   putStrLn s
 
 export
-playerMove : Number -> BASIC ()
+playerMove : Monad m => Number -> BASIC m ()
 playerMove dir = do
   setVar (mkV RealVar "MH" []) $ NumVal 2
   setVar (mkV RealVar "Z" []) $ NumVal dir
 
 export
-playerAction : Number -> BASIC ()
+playerAction : Monad m => Number -> BASIC m ()
 playerAction i = do
   setVar (mkV RealVar "MH" []) $ NumVal 1
   setVar (mkV RealVar "MA" []) $ NumVal i
 
-playerInput : BASIC ()
+playerInput : Monad m => BASIC m ()
 playerInput = throwE . WaitInput =<< gets actions
 
-execStmts : BASIC ()
+execStmts : Monad m => BASIC m ()
 execStmts = do
   k <- gets currLine
   let (lineNum, stmts, nextLine) = k
@@ -307,7 +307,7 @@ execStmts = do
   exec s
 
 export
-execLine : BASIC ()
+execLine : Monad m => BASIC m ()
 execLine = do
     s <- get
     let (lineNum, _, _) = currLine s
@@ -359,6 +359,7 @@ execLine = do
                 returnSub
                 playerInput
             10455 => do
+                -- TODO: good checkpoint for saving/loading
                 returnSub
                 playerInput
             10640 => do
@@ -367,6 +368,7 @@ execLine = do
             10510 => do
                 goto 10600
             10600 => do
+                -- TODO: good checkpoint for saving/loading
                 returnSub
             _ => do
               execStmts
@@ -377,11 +379,11 @@ zipWithNext f (x :: []) = [f x Nothing]
 zipWithNext f (x :: xs@(x' :: _)) = f x (Just x') :: zipWithNext f xs
 
 export
-runBASIC : R -> S -> BASIC () -> (S, Output)
-runBASIC r s act =
-  let (s', res) = runState s . runReaderT r . runEitherT $ act
-  in case res of
-    Left ev => (s', ev)
+runBASIC : Monad m => R -> S -> BASIC m () -> m (S, Output)
+runBASIC r s act = do
+  (s', res) <- runStateT s . runReaderT r . runEitherT $ act
+  case res of
+    Left ev => pure (s', ev)
     Right () => runBASIC r s' execLine
 
 export

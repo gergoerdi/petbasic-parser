@@ -15,6 +15,7 @@ import Data.List1
 import Data.String
 import Control.Monad.Reader
 import Control.Monad.State
+import Control.Monad.Identity
 
 import JS
 import Web.Fetch
@@ -73,24 +74,29 @@ fromOutput out = case out of
    EndGame => do
      pure $ ready [] -- TODO: wait for click, then end game
 
-step : R -> BASIC () -> S -> (S, List Output)
-step r act s =
-  let (s', out) = runBASIC r s act
-      continue = case out of
+step : Monad m => R -> BASIC m () -> S -> m (S, List Output)
+step r act s = do
+  (s', out) <- runBASIC r s act
+  let continue = case out of
         WaitInput{} => False
         EndGame{} => False
         _ => True
-  in if continue then let (s'', outs) = step r execLine s' in (s'', out::outs) else (s', [out])
+  if continue
+    then do
+      (s'', outs) <- step r execLine s'
+      pure (s'', out::outs)
+    else do
+      pure (s', [out])
 
 export
 app : List (LineNum, List1 Stmt) -> JSIO (App JSIO InputEvent (Promise (List OutputEvent)))
 app lines = do
   let (r, s) = startBASIC lines
   ref <- newIORef s
-  let run : BASIC () -> JSIO (List Output)
+  let run : BASIC Identity () -> JSIO (List Output)
       run act = do
         s <- readIORef ref
-        let (s', out) = step r act s
+        let (s', out) = runIdentity $ step r act s
         writeIORef ref s'
         pure out
   initial <- concatP =<< (traverse fromOutput =<< run execLine)
@@ -124,6 +130,7 @@ app lines = do
               CSSStyleDeclaration.setProperty' sty "--pic-idx-prev" current
               CSSStyleDeclaration.setProperty' sty "--pic-idx" $ show idx
               _ <- toggle !(classList pic) "pic-trigger" (Def True)
+              -- _ <- getComputedStyle' !window pic
               _ <- primIO $ prim__offsetWidth pic
               _ <- toggle !(classList pic) "pic-trigger" (Def False)
               checked checkbox .= False
