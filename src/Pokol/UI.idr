@@ -94,16 +94,15 @@ app : List (LineNum, List1 Stmt) -> JSIO (App JSIO InputEvent (Promise (List Out
 app lines = do
   let (r, s) = startBASIC lines
   ref <- newIORef (s, neutral)
-  let run : BASIC (Writer W) () -> JSIO (W, List Output)
+  let run : BASIC (Writer W) () -> JSIO (Promise (List OutputEvent))
       run act = do
-        (s, w0) <- readIORef ref
-        let ((s', outs), w) = runWriter $ step r act s
-        let w' = w0 <+> w
-        writeIORef ref (s', w')
-        pure (w', outs)
-      toView : (W, List Output) -> JSIO (Promise (List OutputEvent))
-      toView (w, outs) = concatP =<< traverse (fromOutput w) outs
-  initial <- toView =<< run execLine
+        (s, w) <- readIORef ref
+        ((s, outs), w') <- pure $ runWriter $ step r act s
+        w <- pure $ w <+> w'
+        writeIORef ref (s, w)
+        p <- concatP =<< traverse (fromOutput w) outs
+        pure p
+  initial <- run execLine
   pure $ MkApp
     { view = \sink => do
         Just pic <- (castTo HTMLImageElement =<<) <$> getElementById !document "pic"
@@ -151,9 +150,8 @@ app lines = do
               ignore $ appendChild li a
               ignore $ appendChild newActions li
               oldActions `replaceWith` [inject $ newActions :> Node]
-    , model = \input => do
-        (toView =<<) $ run $ case input of
-          Move n => playerMove n
-          Action n => playerAction n
+    , model = \input => run $ case input of
+        Move n => playerMove n
+        Action n => playerAction n
     , initial = initial
     }
