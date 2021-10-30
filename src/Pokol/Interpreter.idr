@@ -8,6 +8,7 @@ import Data.List
 import Data.List1
 import Data.Maybe
 import Control.Monad.Reader
+import Control.Monad.Writer
 import Control.Monad.State
 import Control.Monad.Either
 import Data.String
@@ -64,8 +65,6 @@ mutual
     currLine : Cont
     returnConts : List Cont
     nextConts : List Cont
-    actions : List String
-    nextActionClears : Bool
 
   public export
   record R where
@@ -77,7 +76,7 @@ mutual
     = EndGame
     | Message String
     | ChangeRoom Nat String Nat
-    | WaitInput (List String)
+    | WaitInput
 
   public export -- XXX how do we export just the Monad &c. implementations?
   BASIC : (Type -> Type) -> Type -> Type
@@ -88,7 +87,7 @@ Show Output where
   show EndGame = "EndGame"
   show (Message s) = "Message " <+> s
   show (ChangeRoom pictTag textTag lines) = unwords ["ChangeRoom", show pictTag, show textTag, show lines]
-  show (WaitInput actions) = unlines $ "WaitInput" :: map (" * " <+>) actions
+  show WaitInput = "WaitInput"
 
 modify : Monad m => (S -> S) -> BASIC m ()
 modify = Control.Monad.State.modify
@@ -197,7 +196,43 @@ index1OrLast n (x ::: xs) = case n of
     go Z     _ (x::xs)   = x
     go (S n) _ (x :: xs) = go n x xs
 
-exec : Monad m => Stmt -> BASIC m ()
+public export
+interface Monad m => MonadBASICIO m where
+  doPrint : List Bits8 -> BASIC m ()
+  doClearActions : BASIC m ()
+
+public export
+record W where
+  constructor MkW
+  actions : List String
+  nextActionClears : Bool
+
+public export
+Semigroup W where
+  MkW as clr <+> MkW as' clr' =
+    if clr && not (null as') then MkW as' clr'
+      else MkW (as <+> as') (clr || clr')
+
+public export
+Monoid W where
+  neutral = MkW neutral False
+
+export
+Monad m => MonadBASICIO (WriterT W m) where
+  doClearActions = tell $ MkW neutral True
+
+  doPrint bs = do
+    let action = sanitizeLine bs
+        newAction = unless (null . trim $ action) $ tell $ MkW [action] False
+    case bs of
+      (c::bs') =>
+        if c == 158 then do
+          doClearActions
+          throwE . Message $ sanitizeLine bs'
+        else newAction
+      _ =>  newAction
+
+exec : MonadBASICIO m => Stmt -> BASIC m ()
 exec (If cond thn) = do
   b <- isTrue <$> eval cond
   if b then exec thn else gotoNext
@@ -220,19 +255,8 @@ exec (Print ss newLine) = do
       strVal = \val => case val of
         StrVal bs => bs
         _        => []
-  let str = concat $ map strVal vals
-      action = sanitizeLine str
-  let newAction = unless (null . trim $ action) $ do
-        clear <- gets nextActionClears
-        when clear $ modify $ record{ actions = empty, nextActionClears = False }
-        modify $ record { actions $= (<+> [action]) }
-  case str of
-      (c::str') =>
-        if c == 158 then do
-          modify $ record { nextActionClears = True }
-          throwE . Message $ sanitizeLine str'
-        else newAction
-      _ =>  newAction
+  let bs = concat $ map strVal vals
+  doPrint bs
 exec (OnGoto e lines) = do
   NumVal val <- eval e
     | e => assert_total $ idris_crash $ unwords ["onGoto", show e]
@@ -294,10 +318,12 @@ playerAction i = do
   setVar (mkV RealVar "MH" []) $ NumVal 1
   setVar (mkV RealVar "MA" []) $ NumVal i
 
-playerInput : Monad m => BASIC m ()
-playerInput = throwE . WaitInput =<< gets actions
+playerInput : MonadBASICIO m => BASIC m ()
+playerInput = do
+  doClearActions
+  throwE WaitInput
 
-execStmts : Monad m => BASIC m ()
+execStmts : MonadBASICIO m => BASIC m ()
 execStmts = do
   k <- gets currLine
   let (lineNum, stmts, nextLine) = k
@@ -307,7 +333,7 @@ execStmts = do
   exec s
 
 export
-execLine : Monad m => BASIC m ()
+execLine : MonadBASICIO m => BASIC m ()
 execLine = do
     s <- get
     let (lineNum, _, _) = currLine s
@@ -352,8 +378,7 @@ execLine = do
                 returnSub
                 throwE $ ChangeRoom pictTag textTag (if isTrue tv then 6 else 7)
             10200 => do
-                -- modify $ record { actions = empty }
-                modify $ record{ nextActionClears = True }
+                doClearActions
                 returnSub
             10394 => do
                 returnSub
@@ -379,7 +404,7 @@ zipWithNext f (x :: []) = [f x Nothing]
 zipWithNext f (x :: xs@(x' :: _)) = f x (Just x') :: zipWithNext f xs
 
 export
-runBASIC : Monad m => R -> S -> BASIC m () -> m (S, Output)
+runBASIC : MonadBASICIO m => R -> S -> BASIC m () -> m (S, Output)
 runBASIC r s act = do
   (s', res) <- runStateT s . runReaderT r . runEitherT $ act
   case res of
@@ -397,8 +422,6 @@ startBASIC lines =
         , vars = empty
         , returnConts = empty
         , nextConts = empty
-        , actions = empty
-        , nextActionClears = False
         }
 
       r = MkR

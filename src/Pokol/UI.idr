@@ -14,6 +14,7 @@ import Data.List
 import Data.List1
 import Data.String
 import Control.Monad.Reader
+import Control.Monad.Writer
 import Control.Monad.State
 import Control.Monad.Identity
 
@@ -54,8 +55,8 @@ data OutputEvent
   | ChangeActions (List String)
   | ChangePrompt String
 
-fromOutput : Output -> JSIO (Promise (List OutputEvent))
-fromOutput out = case out of
+fromOutput : W -> Output -> JSIO (Promise (List OutputEvent))
+fromOutput w out = case out of
    ChangeRoom pic txt n => do
      p <- fetch $ "assets/text/" <+> txt
      p <- p `then_` arrayBuffer
@@ -67,14 +68,14 @@ fromOutput out = case out of
          , ChangeText s
          , ChangePrompt "MIT TESZEL?"
          ]
-   WaitInput actions => do
-     pure $ ready [ChangeActions actions]
+   WaitInput => do
+     pure $ ready [ChangeActions w.actions]
    Message s => do
      pure $ ready [ChangePrompt s] -- TODO: wait for click?
    EndGame => do
      pure $ ready [] -- TODO: wait for click, then end game
 
-step : Monad m => R -> BASIC m () -> S -> m (S, List Output)
+step : MonadBASICIO m => R -> BASIC m () -> S -> m (S, List Output)
 step r act s = do
   (s', out) <- runBASIC r s act
   let continue = case out of
@@ -92,14 +93,17 @@ export
 app : List (LineNum, List1 Stmt) -> JSIO (App JSIO InputEvent (Promise (List OutputEvent)))
 app lines = do
   let (r, s) = startBASIC lines
-  ref <- newIORef s
-  let run : BASIC Identity () -> JSIO (List Output)
+  ref <- newIORef (s, neutral)
+  let run : BASIC (Writer W) () -> JSIO (W, List Output)
       run act = do
-        s <- readIORef ref
-        let (s', out) = runIdentity $ step r act s
-        writeIORef ref s'
-        pure out
-  initial <- concatP =<< (traverse fromOutput =<< run execLine)
+        (s, w0) <- readIORef ref
+        let ((s', outs), w) = runWriter $ step r act s
+        let w' = w0 <+> w
+        writeIORef ref (s', w')
+        pure (w', outs)
+      toView : (W, List Output) -> JSIO (Promise (List OutputEvent))
+      toView (w, outs) = concatP =<< traverse (fromOutput w) outs
+  initial <- toView =<< run execLine
   pure $ MkApp
     { view = \sink => do
         Just pic <- (castTo HTMLImageElement =<<) <$> getElementById !document "pic"
@@ -148,9 +152,8 @@ app lines = do
               ignore $ appendChild newActions li
               oldActions `replaceWith` [inject $ newActions :> Node]
     , model = \input => do
-        outs <- run $ case input of
+        (toView =<<) $ run $ case input of
           Move n => playerMove n
           Action n => playerAction n
-        concatP =<< traverse fromOutput outs
     , initial = initial
     }
