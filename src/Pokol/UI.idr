@@ -54,6 +54,7 @@ data OutputEvent
   | ChangeText String
   | ChangeActions (List String)
   | ChangePrompt String
+  | InventoryItems (List String)
 
 fromOutput : W -> Output -> JSIO (Promise (List OutputEvent))
 fromOutput w out = case out of
@@ -100,7 +101,9 @@ app lines = do
         ((s, outs), w') <- pure $ runWriter $ step r act s
         w <- pure $ w <+> w'
         writeIORef ref (s, w)
+        let inventory = execWriter $ step r (goto 9120 *> execLine) s
         p <- concatP =<< traverse (fromOutput w) outs
+        p <- p `then_` \xs => pure $ ready $ xs <+> [InventoryItems inventory]
         pure p
   initial <- run execLine
   pure $ MkApp
@@ -140,15 +143,18 @@ app lines = do
           ChangeText s => textContent text .= s
           ChangePrompt s => textContent prompt .= s
           ChangeActions ss => do
-            Just actions <- getElementById !document "actions"
-              | _ => assert_total $ idris_crash "HTML mismatch: actions"
             items <- for (filter (not . null . snd) (zipFrom 1 ss)) $ \(i, action) => do
               a <- newElement A [textContent =. action, href =. "#"]
               onclick a ?> sink $ Action i
               li <- createElement Li
               ignore $ appendChild li a
-              pure $ inject $ li :> Node
-            replaceChildren actions items
+              pure $ li :> Node
+            replaceChildrenById "actions" items
+          InventoryItems ss => do
+            items <- for ss $ \s => do
+              li <- newElement Li [textContent =. s]
+              pure $ li :> Node
+            replaceChildrenById "inventory" items
     , model = \input => run $ case input of
         Move n => playerMove n
         Action n => playerAction n

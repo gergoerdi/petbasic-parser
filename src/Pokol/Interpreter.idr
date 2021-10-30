@@ -158,6 +158,7 @@ loadLine lineMap lineNum = case lookup lineNum lineMap of
   Nothing => assert_total $ idris_crash $ unwords ["loadLine", show lineNum]
   Just (ss, nextLine) => (lineNum, toList ss, nextLine)
 
+export
 goto : Monad m => LineNum -> BASIC m ()
 goto lineNum = do
   lineMap <- asks lineMap
@@ -231,6 +232,11 @@ Monad m => MonadBASICIO (WriterT W m) where
           throwE . Message $ sanitizeLine bs'
         else newAction
       _ =>  newAction
+
+export
+Monad m => MonadBASICIO (WriterT (List String) m) where
+  doClearActions = pure ()
+  doPrint bs = tell [sanitizeLine bs]
 
 exec : MonadBASICIO m => Stmt -> BASIC m ()
 exec (If cond thn) = do
@@ -350,9 +356,6 @@ execLine = do
                 goto 4544
             9015 => do
                 -- liftIO $ putStrLn "CLRSCR"
-                returnSub
-            9120 => do
-                -- putStrLn "Inventory"
                 returnSub
             9600 => do
                 -- liftIO $ putStrLn "copy protection"
