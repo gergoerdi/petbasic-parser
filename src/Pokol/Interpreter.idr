@@ -172,7 +172,7 @@ gosub lineNum = do
 returnSub : Monad m => BASIC m ()
 returnSub = do
   (k :: ks) <- gets returnConts
-    | [] => assert_total $ idris_crash "gosub stack underflow"
+    | [] => throwE EndGame
   modify $ record { returnConts = ks, currLine = k }
 
 partial unsafeTail : List a -> List a
