@@ -140,16 +140,15 @@ app lines = do
           ChangeText s => textContent text .= s
           ChangePrompt s => textContent prompt .= s
           ChangeActions ss => do
-            Just oldActions <- (castTo HTMLUListElement =<<) <$> getElementById !document "actions"
+            Just actions <- getElementById !document "actions"
               | _ => assert_total $ idris_crash "HTML mismatch: actions"
-            newActions <- newElement Ul [id =. "actions"]
-            for_ (zipFrom 1 ss) $ \(i, action) => unless (null action) $ do
+            items <- for (filter (not . null . snd) (zipFrom 1 ss)) $ \(i, action) => do
               a <- newElement A [textContent =. action, href =. "#"]
               onclick a ?> sink $ Action i
               li <- createElement Li
               ignore $ appendChild li a
-              ignore $ appendChild newActions li
-              oldActions `replaceWith` [inject $ newActions :> Node]
+              pure $ inject $ li :> Node
+            replaceChildren actions items
     , model = \input => run $ case input of
         Move n => playerMove n
         Action n => playerAction n
