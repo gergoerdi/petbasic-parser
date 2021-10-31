@@ -29,10 +29,3 @@ elementList coll = do
               Just x => (x ::) <$> loop (i + 1)
           else pure []
   loop 0
-
-export
-replaceChildrenById : String -> List Node -> JSIO ()
-replaceChildrenById id nodes = do
-  Just parent <- getElementById !document id
-    | _ => assert_total $ idris_crash $ "HTML mismatch: " <+> id
-  replaceChildren parent $ map (\x => inject x) nodes

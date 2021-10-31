@@ -113,7 +113,7 @@ app lines = do
   [Just text] <- map (castTo HTMLPreElement) <$> (elementList =<< getElementsByTagName !document "pre")
     | _ => assert_total $ idris_crash "HTML mismatch: text"
 
-  Just prompt <- (castTo HTMLParagraphElement =<<) <$> getElementById !document "prompt"
+  Just prompt <- getElementById !document "prompt"
     | _ => assert_total $ idris_crash "HTML mismatch: prompt"
 
   Just checkbox <- (castTo HTMLInputElement =<<) <$> getElementById !document "tab-inventory"
@@ -127,6 +127,12 @@ app lines = do
     [Just a] <- map (castTo HTMLAnchorElement) <$> (elementList =<< getElementsByTagName span "a")
       | _ => assert_total $ idris_crash "HTML mismatch: compass"
     pure (i, a)
+
+  Just actions <- (castTo HTMLUListElement =<<) <$> getElementById !document "actions"
+    | _ => assert_total $ idris_crash $ "HTML mismatch: actions"
+
+  Just inventory <- getElementById !document "inventory"
+    | _ => assert_total $ idris_crash $ "HTML mismatch: inventory"
 
   pure $ MkApp
     { view = \sink => do
@@ -152,13 +158,13 @@ app lines = do
               onclick a ?> sink $ Action i
               li <- createElement Li
               ignore $ appendChild li a
-              pure $ li :> Node
-            replaceChildrenById "actions" items
+              pure $ inject $ li :> Node
+            replaceChildren actions items
           InventoryItems ss => do
             items <- for ss $ \s => do
               li <- newElement Li [textContent =. s]
-              pure $ li :> Node
-            replaceChildrenById "inventory" items
+              pure $ inject $ li :> Node
+            replaceChildren inventory items
     , model = \input => run $ case input of
         Move n => playerMove n
         Action n => playerAction n
