@@ -106,27 +106,31 @@ app lines = do
         p <- p `then_` \xs => pure $ ready $ xs <+> [InventoryItems inventory]
         pure p
   initial <- run execLine
+
+  Just pic <- (castTo HTMLImageElement =<<) <$> getElementById !document "pic"
+    | _ => assert_total $ idris_crash "HTML mismatch: pic"
+
+  [Just text] <- map (castTo HTMLPreElement) <$> (elementList =<< getElementsByTagName !document "pre")
+    | _ => assert_total $ idris_crash "HTML mismatch: text"
+
+  Just prompt <- (castTo HTMLParagraphElement =<<) <$> getElementById !document "prompt"
+    | _ => assert_total $ idris_crash "HTML mismatch: prompt"
+
+  Just checkbox <- (castTo HTMLInputElement =<<) <$> getElementById !document "tab-inventory"
+    | _ => assert_total $ idris_crash "HTML mismatch: tab-inventory"
+  onkeydown !document !> \ev =>
+    when (not !(repeat ev) && !(key ev) == "t") $ checked checkbox %= not
+
+  dirs <- for (zipFrom 1 ["n", "w", "e", "s"]) $ \(i, tag) => do
+    Just span <- (castTo HTMLSpanElement =<<) <$> getElementById !document ("compass-" <+> tag)
+      | _ => assert_total $ idris_crash "HTML mismatch: compass"
+    [Just a] <- map (castTo HTMLAnchorElement) <$> (elementList =<< getElementsByTagName span "a")
+      | _ => assert_total $ idris_crash "HTML mismatch: compass"
+    pure (i, a)
+
   pure $ MkApp
     { view = \sink => do
-        Just pic <- (castTo HTMLImageElement =<<) <$> getElementById !document "pic"
-          | _ => assert_total $ idris_crash "HTML mismatch: pic"
-
-        for_ (zipFrom 1 ["n", "w", "e", "s"]) $ \(i, tag) => do
-          Just span <- (castTo HTMLSpanElement =<<) <$> getElementById !document ("compass-" <+> tag)
-            | _ => assert_total $ idris_crash "HTML mismatch: compass"
-          [Just a] <- map (castTo HTMLAnchorElement) <$> (elementList =<< getElementsByTagName span "a")
-            | _ => assert_total $ idris_crash "HTML mismatch: compass"
-          onclick a ?> sink $ Move i
-
-        [Just text] <- map (castTo HTMLPreElement) <$> (elementList =<< getElementsByTagName !document "pre")
-          | _ => assert_total $ idris_crash "HTML mismatch: text"
-
-        Just prompt <- (castTo HTMLParagraphElement =<<) <$> getElementById !document "prompt"
-          | _ => assert_total $ idris_crash "HTML mismatch: prompt"
-
-        Just checkbox <- (castTo HTMLInputElement =<<) <$> getElementById !document "tab-inventory"
-          | _ => assert_total $ idris_crash "HTML mismatch: tab-inventory"
-        onkeydown !document !> \ev => when (not !(repeat ev) && !(key ev) == "t") $ checked checkbox %= not
+        for_ dirs $ \(i, a) => onclick a ?> sink $ Move i
 
         pure $ \p => ignore $ (p `then_`) $ \outs => (ready () <$) $ for_ outs $ \out => case out of
           ChangePic idx => do
