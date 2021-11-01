@@ -47,8 +47,13 @@ textFromBuf n buf = unlines . take n . filter (not . null) . lines . pack . map 
         Nothing => pure []
         Just x => (x ::) <$> go (i + 1)
 
-data InputEvent = Move Number | Action Number
+data InputEvent
+ = Unpause
+ | Move Number
+ | Action Number
+
 Show InputEvent where
+  show Unpause = "Unpause"
   show (Move n) = "Move " <+> show n
   show (Action n) = "Action " <+> show n
 
@@ -140,6 +145,7 @@ app lines = do
   pure $ MkApp
     { view = \sink => do
         for_ dirs $ \(i, a) => onclick a ?> sink $ Move i
+        onclick pause ?> sink Unpause
 
         pure $ traverse_ $ \out => case out of
           Pause wait => do
@@ -172,6 +178,7 @@ app lines = do
               pure $ inject $ li :> Node
             replaceChildren inventory items
     , model = \input => run $ case input of
+        Unpause => execLine
         Move n => playerMove n
         Action n => playerAction n
     , initial = initial
