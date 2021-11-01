@@ -8,7 +8,6 @@ import Pokol.Utils
 
 import Data.Binary
 import JS.App
-import JS.Promise.Extra
 
 import Data.List
 import Data.List1

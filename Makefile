@@ -2,9 +2,9 @@ IDRIS2	= $(HOME)/.idris2/bin/idris2
 TEXTS	= $(wildcard html/assets/text/*)
 
 .PHONY: all
-all: html/pokol.js html/assets/pics.png
+all: html/pokol.js html/assets/pics.png html/assets/pokol.ppb.js
 
-html/texts.js: build/exec/text $(TEXTS)
+html/assets/texts.js: build/exec/text $(TEXTS)
 	build/exec/text $(TEXTS) > $@
 
 .PHONY: build/exec/pokol.js
@@ -24,3 +24,8 @@ install:
 
 html/assets/pics.png: $(wildcard html/assets/pic/*.png)
 	montage $^ -tile 1x -geometry +0+0 $@
+
+html/assets/pokol.ppb.js: html/assets/pokol.ppb
+	(echo "var ppb64 = \"\\"; \
+	base64 $< | sed -e 's/$$/\\/'; \
+	echo '";') > $@

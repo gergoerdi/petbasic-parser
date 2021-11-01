@@ -4,7 +4,6 @@ import Pokol.UI
 
 import Data.Binary
 import JS.App
-import JS.Promise.Extra
 
 import Data.List1
 import Control.Monad.Reader
@@ -23,16 +22,15 @@ loadGame buf = liftIO $ evalStateT (the Bits32 0) $ runReaderT buf $ getList get
     getLine : Get (LineNum, List1 Stmt)
     getLine = (,) <$> get <*> getList1 get
 
+%foreign "browser:lambda:(s) => Uint8Array.from(s, c=>c.charCodeAt(0))"
+prim__stringToUInt8Array : String -> UInt8Array
+
+%foreign "browser:lambda:() => atob(ppb64)"
+prim__ppbImage : () -> String
+
 main : IO ()
 main = runJS $ do
-  p <- fetch "assets/pokol.ppb"
-  p <- p `then_` arrayBuffer
-  _ <- p `then_` \buf => do
-    buf8 <- pure $ the UInt8Array $ cast buf
-    putStrLn "Loaded"
-    lines <- loadGame buf8
-    putStrLn "Parsed"
-    app lines >>= runApp
-    pure $ ready ()
-
+  let buf8 = prim__stringToUInt8Array $ prim__ppbImage ()
+  lines <- loadGame buf8
+  app lines >>= runApp
   pure ()
