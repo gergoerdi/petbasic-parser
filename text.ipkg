@@ -1,0 +1,13 @@
+package pokol
+
+depends
+    = base         >= 0.5.1
+    , contrib      >= 0.5.1
+    , dom          >= 0.1.0
+    , elab-util    >= 0.5.0
+    , sop          >= 0.5.0
+
+sourcedir = "src"
+
+executable = "text"
+main = Pokol.PrepareText
