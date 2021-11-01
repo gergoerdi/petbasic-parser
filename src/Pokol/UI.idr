@@ -34,6 +34,9 @@ import Data.IORef
 %foreign "browser:lambda:(_a, x) => x.offsetWidth"
 export prim__offsetWidth : a -> PrimIO Int
 
+%foreign "browser:lambda:(n,key) => texts[key].slice(0,n).join('\\n')"
+prim__lookupText : Int -> String -> String
+
 textFromBuf : Nat -> UInt8Array -> JSIO String
 textFromBuf n buf = unlines . take n . filter (not . null) . lines . pack . map readable <$> go 2
   where
@@ -57,27 +60,22 @@ data OutputEvent
   | InventoryItems (List String)
   | Pause Bool
 
-fromOutput : W -> Output -> JSIO (Promise (List OutputEvent))
+fromOutput : W -> Output -> JSIO (List OutputEvent)
 fromOutput w out = case out of
    ChangeRoom pic txt n => do
-     p <- fetch $ "assets/text/" <+> txt
-     p <- p `then_` arrayBuffer
-     p `then_` \buf => do
-       buf8 <- pure $ the UInt8Array $ cast buf
-       s <- textFromBuf n buf8
-       pure $ ready $
-         [ ChangePic pic
-         , ChangeText s
-         , ChangePrompt "MIT TESZEL?"
-         ]
+     pure $
+       [ ChangePic pic
+       , ChangeText $ prim__lookupText (cast n) txt
+       , ChangePrompt "MIT TESZEL?"
+       ]
    WaitInput => do
-     pure $ ready [ChangeActions w.actions]
+     pure [ChangeActions w.actions]
    Message s => do
-     pure $ ready [ChangePrompt s]
+     pure [ChangePrompt s]
    EndGame => do
-     pure $ ready [Pause True] -- TODO: wait for click, then end game
+     pure [Pause True] -- TODO: wait for click, then end game
    Pause => do
-     pure $ ready [Pause True]
+     pure [Pause True]
 
 step : MonadBASICIO m => R -> BASIC m () -> S -> m (S, List Output)
 step r act s = do
@@ -95,20 +93,18 @@ step r act s = do
       pure (s', [out])
 
 export
-app : List (LineNum, List1 Stmt) -> JSIO (App JSIO InputEvent (Promise (List OutputEvent)))
+app : List (LineNum, List1 Stmt) -> JSIO (App JSIO InputEvent (List OutputEvent))
 app lines = do
   let (r, s) = startBASIC lines
   ref <- newIORef (s, neutral)
-  let run : BASIC (Writer W) () -> JSIO (Promise (List OutputEvent))
+  let run : BASIC (Writer W) () -> JSIO (List OutputEvent)
       run act = do
         (s, w) <- readIORef ref
         ((s, outs), w') <- pure $ runWriter $ step r act s
         w <- pure $ w <+> w'
         writeIORef ref (s, w)
         let inventory = execWriter $ step r (goto 9120 *> execLine) s
-        p <- concatP =<< traverse (fromOutput w) outs
-        p <- p `then_` \xs => pure $ ready $ xs <+> [InventoryItems inventory]
-        pure p
+        pure $ [Pause False] <+> concat !(traverse (fromOutput w) outs) <+> [InventoryItems inventory]
   initial <- run execLine
 
   Just pic <- (castTo HTMLImageElement =<<) <$> getElementById !document "pic"
@@ -145,7 +141,7 @@ app lines = do
     { view = \sink => do
         for_ dirs $ \(i, a) => onclick a ?> sink $ Move i
 
-        pure $ \p => ignore $ (p `then_`) $ \outs => (ready () <$) $ for_ outs $ \out => case out of
+        pure $ traverse_ $ \out => case out of
           Pause wait => do
             CSSStyleDeclaration.setProperty' !(style actions) "visibility" (if wait then "hidden" else "visible")
             CSSStyleDeclaration.setProperty' !(style pause) "display" (if wait then "block" else "none")
