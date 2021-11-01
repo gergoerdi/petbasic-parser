@@ -55,6 +55,7 @@ data OutputEvent
   | ChangeActions (List String)
   | ChangePrompt String
   | InventoryItems (List String)
+  | Pause Bool
 
 fromOutput : W -> Output -> JSIO (Promise (List OutputEvent))
 fromOutput w out = case out of
@@ -72,9 +73,11 @@ fromOutput w out = case out of
    WaitInput => do
      pure $ ready [ChangeActions w.actions]
    Message s => do
-     pure $ ready [ChangePrompt s] -- TODO: wait for click?
+     pure $ ready [ChangePrompt s]
    EndGame => do
-     pure $ ready [] -- TODO: wait for click, then end game
+     pure $ ready [Pause True] -- TODO: wait for click, then end game
+   Pause => do
+     pure $ ready [Pause True]
 
 step : MonadBASICIO m => R -> BASIC m () -> S -> m (S, List Output)
 step r act s = do
@@ -82,6 +85,7 @@ step r act s = do
   let continue = case out of
         WaitInput{} => False
         EndGame{} => False
+        Pause{} => False
         _ => True
   if continue
     then do
@@ -131,6 +135,9 @@ app lines = do
   Just actions <- (castTo HTMLUListElement =<<) <$> getElementById !document "actions"
     | _ => assert_total $ idris_crash $ "HTML mismatch: actions"
 
+  Just pause <- (castTo HTMLSpanElement =<<) <$> getElementById !document "pause"
+    | _ => assert_total $ idris_crash $ "HTML mismatch: pause"
+
   Just inventory <- getElementById !document "inventory"
     | _ => assert_total $ idris_crash $ "HTML mismatch: inventory"
 
@@ -139,6 +146,9 @@ app lines = do
         for_ dirs $ \(i, a) => onclick a ?> sink $ Move i
 
         pure $ \p => ignore $ (p `then_`) $ \outs => (ready () <$) $ for_ outs $ \out => case out of
+          Pause wait => do
+            CSSStyleDeclaration.setProperty' !(style actions) "visibility" (if wait then "hidden" else "visible")
+            CSSStyleDeclaration.setProperty' !(style pause) "display" (if wait then "block" else "none")
           ChangePic idx => do
             sty <- style pic
             current <- trim <$> CSSStyleDeclaration.getPropertyValue !(getComputedStyle' !window pic) "--pic-idx"
