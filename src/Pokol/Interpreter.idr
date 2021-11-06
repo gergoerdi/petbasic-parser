@@ -57,6 +57,17 @@ Cont = (LineNum, List Stmt, Maybe LineNum)
 LineMap : Type
 LineMap = SortedMap LineNum (List1 Stmt, Maybe LineNum)
 
+record NextCont where
+  constructor MkNextCont
+  var : V
+  to : Number
+  step: Number
+  next : Cont
+
+findNext : V -> List NextCont -> Maybe (NextCont, List NextCont)
+findNext v [] = Nothing
+findNext v (next::nexts) = if var next == v then Just (next, nexts) else findNext v nexts
+
 mutual
   public export
   record S where
@@ -64,7 +75,7 @@ mutual
     vars : SortedMap V Value
     currLine : Cont
     returnConts : List Cont
-    nextConts : List Cont
+    nextConts : List NextCont
 
   public export
   record R where
@@ -277,28 +288,26 @@ exec (OnGosub e lines) = do
     | e => assert_total $ idris_crash $ unwords ["onGosub", show e]
   let line = index1OrLast (cast $ val - 1) lines
   gosub line
--- exec (For v0 from to mstep) = do
---   let v = MkV v0 []
---   setVar v =<< eval from
---   let next, loop : BASIC ()
---       next = do
---           to <- eval to
---           current <- getVar v
---           let new = current `plus` NumVal step
---           setVar v new
---           if keepGoing new to then loop else modify $ record { nextConts $= unsafeTail }
---       -- loop = modify $ record { nextConts $= (next::) }
---   loop
---   where
---     step : Number
---     step = fromMaybe 1 mstep
-
---     decreasing : Bool
---     decreasing = step < 0
-
---     keepGoing : Value -> Value -> Bool
---     keepGoing (NumVal x) (NumVal y) = if decreasing then x >= y else x <= y
---     keepGoing _ _ = False
+exec (For v0 from to step) = do
+  let v = MkV v0 []
+  setVar v $ NumVal from
+  k <- gets currLine
+  modify $ record { nextConts $= (MkNextCont v to step k ::) }
+exec (Next v0) = do
+  let v = MkV v0 []
+  nexts <- gets nextConts
+  Just (MkNextCont _ to step k, nexts) <- pure $ findNext v nexts
+    | Nothing => assert_total $ idris_crash ("Next " <+> show v0)
+  modify $ record { nextConts = nexts }
+  let decreasing = step < 0
+  let keepGoing : Value -> Bool
+      keepGoing (NumVal x) = if decreasing then x >= to else x <= to
+      keepGoing _ = False
+  current <- getVar v
+  let new = current `plus` NumVal step
+  setVar v new
+  when (keepGoing new) $ do
+     modify $ record { currLine = k }
 exec stmt = do
   k <- gets currLine
   assert_total $ idris_crash $ show (k, stmt)
