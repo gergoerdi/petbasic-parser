@@ -93,7 +93,7 @@ data Stmt
   | Gosub LineNum
   | Return
   | Poke Expr Expr
-  | For Var0 Expr Expr Number
+  | For Var0 Number Number Number
   | Read Var
   | Next Var0
   | Data (List1 Number)
