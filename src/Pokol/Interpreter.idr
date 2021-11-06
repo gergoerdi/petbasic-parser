@@ -78,6 +78,7 @@ mutual
     | ChangeRoom Nat String Nat
     | WaitInput
     | Pause
+    | ShowInventory
 
   public export -- XXX how do we export just the Monad &c. implementations?
   BASIC : (Type -> Type) -> Type -> Type
@@ -90,6 +91,7 @@ Show Output where
   show (ChangeRoom pictTag textTag lines) = unwords ["ChangeRoom", show pictTag, show textTag, show lines]
   show WaitInput = "WaitInput"
   show Pause = "Pause"
+  show ShowInventory = "ShowInventory"
 
 modify : Monad m => (S -> S) -> BASIC m ()
 modify = Control.Monad.State.modify
@@ -353,6 +355,9 @@ execLine = do
             3610 => do
                 goto 3620
                 throwE Pause
+            3990 => do -- Horrible hack to show inventory on special case
+                execStmts
+                throwE ShowInventory
             4540 => do
                 goto 4544
                 throwE Pause

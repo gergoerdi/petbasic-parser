@@ -63,6 +63,7 @@ data OutputEvent
   | ChangePrompt String
   | InventoryItems (List String)
   | Pause Bool
+  | ShowInventory
 
 fromOutput : W -> Output -> JSIO (List OutputEvent)
 fromOutput w out = case out of
@@ -80,6 +81,8 @@ fromOutput w out = case out of
      pure [Pause True] -- TODO: wait for click, then end game
    Pause => do
      pure [Pause True]
+   ShowInventory => do
+     pure [ShowInventory]
 
 step : MonadBASICIO m => R -> BASIC m () -> S -> m (S, List Output)
 step r act s = do
@@ -105,6 +108,7 @@ app lines = do
       run act = do
         (s, w) <- readIORef ref
         ((s, outs), w') <- pure $ runWriter $ step r act s
+        traverse_ printLn outs
         w <- pure $ w <+> w'
         writeIORef ref (s, w)
         let inventory = execWriter $ step r (goto 9120 *> execLine) s
@@ -120,10 +124,10 @@ app lines = do
   Just prompt <- getElementById !document "prompt"
     | _ => assert_total $ idris_crash "HTML mismatch: prompt"
 
-  Just checkbox <- (castTo HTMLInputElement =<<) <$> getElementById !document "tab-inventory"
+  Just showInventory <- (castTo HTMLInputElement =<<) <$> getElementById !document "tab-inventory"
     | _ => assert_total $ idris_crash "HTML mismatch: tab-inventory"
   onkeydown !document !> \ev =>
-    when (not !(repeat ev) && !(key ev) == "t") $ checked checkbox %= not
+    when (not !(repeat ev) && !(key ev) == "t") $ checked showInventory %= not
 
   dirs <- for (zipFrom 1 ["n", "w", "e", "s"]) $ \(i, tag) => do
     Just span <- (castTo HTMLSpanElement =<<) <$> getElementById !document ("compass-" <+> tag)
@@ -160,7 +164,7 @@ app lines = do
               -- _ <- getComputedStyle' !window pic
               _ <- primIO $ prim__offsetWidth pic
               _ <- toggle !(classList pic) "pic-trigger" (Def False)
-              checked checkbox .= False
+              checked showInventory .= False
           ChangeText s => textContent text .= s
           ChangePrompt s => textContent prompt .= s
           ChangeActions ss => do
@@ -176,6 +180,9 @@ app lines = do
               li <- newElement Li [textContent =. s]
               pure $ inject $ li :> Node
             replaceChildren inventory items
+          ShowInventory => do
+            checked showInventory .= True
+
     , model = \input => run $ case input of
         Unpause => execLine
         Move n => playerMove n
