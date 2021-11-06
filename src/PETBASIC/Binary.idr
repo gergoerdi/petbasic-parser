@@ -1,14 +1,10 @@
 module PETBASIC.Binary
 
-import JS
-
 import Data.Binary
 
 import PETBASIC.Syntax
 import Data.List1
 import Data.List
-import Control.Monad.Reader
-import Control.Monad.State
 
 export
 implementation Binary Bool where
@@ -194,26 +190,3 @@ implementation Binary Stmt where
     Assign v e           => tag 0xb2 *> put v *> put e
     OnGoto e labs        => tag 0x01 *> put e *> putList1 put labs
     OnGosub e labs       => tag 0x02 *> put e *> putList1 put labs
-
-public export
-Get : Type -> Type
-Get = ReaderT UInt8Array (StateT Bits32 IO)
-
-public export
-implementation MonadGet Get where
-  getBits8 = do
-    i <- lift $ get <* modify (+ 1)
-    arr <- ask
-    mx <- readIO arr i
-    pure $ assert_total $ case mx of Just x => x
-
-public export
-Put : Type -> Type
-Put = ReaderT (Array Bits8) (StateT Bits32 IO)
-
-public export
-implementation MonadPut Put where
-  putBits8 x = do
-    i <- lift $ get <* modify (+ 1)
-    arr <- ask
-    writeIO arr i x

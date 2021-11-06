@@ -3,6 +3,7 @@ import PETBASIC.Binary
 import Pokol.UI
 
 import Data.Binary
+import Data.Binary.Array
 import JS.App
 
 import Data.List1
