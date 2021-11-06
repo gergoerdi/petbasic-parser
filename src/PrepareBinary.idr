@@ -44,7 +44,7 @@ main = do
   len <- execStateT 0 $ runReaderT buf $ putList putLine lines
   printLn len
 
-  Right () <- writeBufferToFile "pokol.ppb" buf len
+  Right () <- writeBufferToFile "html/assets/pokol.ppb" buf len
     | Left err => pure ()
   pure ()
   where

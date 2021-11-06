@@ -11,6 +11,13 @@ html/assets/texts.js: build/exec/text $(TEXTS)
 build/exec/pokol.js:
 	$(IDRIS2) --build pokol.ipkg
 
+.PHONY: build/exec/prepare-binary
+build/exec/prepare-binary:
+	$(IDRIS2) --build prepare-binary.ipkg
+
+html/assets/pokol.ppb: pokol.mem src/PETBASIC/Binary.idr | build/exec/prepare-binary
+	./build/exec/prepare-binary
+
 .PHONY: build/exec/text
 build/exec/text:
 	$(IDRIS2) --build text.ipkg
