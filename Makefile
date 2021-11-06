@@ -30,7 +30,7 @@ install:
 	rsync -Paz html/ ds9.erdi.hu:web/projects/pokol/
 
 html/assets/pics.png: $(wildcard html/assets/pic/*.png)
-	montage $^ -tile 1x -geometry +0+0 $@
+	montage $(sort $^) -tile 1x -geometry +0+0 $@
 
 html/assets/pokol.ppb.js: html/assets/pokol.ppb
 	(echo "var ppb64 = \"\\"; \
