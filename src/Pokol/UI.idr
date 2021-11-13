@@ -143,6 +143,9 @@ app lines = do
   Just pause <- (castTo HTMLAnchorElement =<<) <$> getElementById !document "pause"
     | _ => assert_total $ idris_crash $ "HTML mismatch: pause"
 
+  Just saveload <- (castTo HTMLElement =<<) <$> getElementById !document "saveload"
+    | _ => assert_total $ idris_crash $ "HTML mismatch: saveload"
+
   Just inventory <- getElementById !document "inventory"
     | _ => assert_total $ idris_crash $ "HTML mismatch: inventory"
 
@@ -154,6 +157,7 @@ app lines = do
         pure $ traverse_ $ \out => case out of
           Pause wait => do
             setPropertyIf wait !(style actions) "visibility" "hidden"
+            setPropertyIf wait !(style saveload) "visibility" "hidden"
             setPropertyIf wait !(style compass) "visibility" "hidden"
             setPropertyIf (not wait) !(style pause) "display" "none"
           ChangePic idx => do
