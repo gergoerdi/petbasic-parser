@@ -129,6 +129,9 @@ app lines = do
   onkeydown !document !> \ev =>
     when (not !(repeat ev) && !(key ev) == "t") $ checked showInventory %= not
 
+  Just compass <- (castTo HTMLElement =<<) <$> getElementById !document "compass"
+    | _ => assert_total $ idris_crash "HTML mismatch: compass"
+
   dirs <- for (zipFrom 1 ["n", "w", "e", "s"]) $ \(i, tag) => do
     Just a <- (castTo HTMLAnchorElement =<<) <$> getElementById !document ("compass-" <+> tag)
       | _ => assert_total $ idris_crash "HTML mismatch: compass"
@@ -150,8 +153,9 @@ app lines = do
 
         pure $ traverse_ $ \out => case out of
           Pause wait => do
-            CSSStyleDeclaration.setProperty' !(style actions) "visibility" (if wait then "hidden" else "visible")
-            CSSStyleDeclaration.setProperty' !(style pause) "display" (if wait then "block" else "none")
+            setPropertyIf wait !(style actions) "visibility" "hidden"
+            setPropertyIf wait !(style compass) "visibility" "hidden"
+            setPropertyIf (not wait) !(style pause) "display" "none"
           ChangePic idx => do
             sty <- style pic
             current <- trim <$> CSSStyleDeclaration.getPropertyValue !(getComputedStyle' !window pic) "--pic-idx"

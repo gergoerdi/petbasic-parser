@@ -120,6 +120,7 @@ pre {
 .prompt {
     border-top: 3px solid #4040ff;
     border-bottom: 3px solid #4040ff;
+    margin: 0 auto;
     text-align: center;
     color: yellow;
     position: relative;
@@ -138,7 +139,7 @@ pre {
     height: 100%;
     bottom: 0;
 
-    display: none;
+    display: block;
     height: 100%;
     width: 100%;
 }
@@ -191,12 +192,8 @@ label {
 
 #bottom {
     position: absolute;
-    bottom: 0;
+    /* bottom: 0; */
     width: 100%;
-}
-
-#actions {
-    /* visibility: hidden; */
 }
 
 * {

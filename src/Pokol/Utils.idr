@@ -2,6 +2,7 @@ module Pokol.Utils
 
 import JS
 import Web.Dom
+import Web.Raw.Css
 
 %foreign "browser:lambda:(_a, _b, x, y) => ((console.log(x),y))"
 export traceConsole : a -> b -> b
@@ -29,3 +30,8 @@ elementList coll = do
               Just x => (x ::) <$> loop (i + 1)
           else pure []
   loop 0
+
+export
+setPropertyIf : Bool -> CSSStyleDeclaration -> String -> String -> JSIO ()
+setPropertyIf True sty prop val = CSSStyleDeclaration.setProperty' sty prop val
+setPropertyIf False sty prop _ = ignore $ CSSStyleDeclaration.removeProperty sty prop
