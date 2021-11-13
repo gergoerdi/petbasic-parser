@@ -130,9 +130,7 @@ app lines = do
     when (not !(repeat ev) && !(key ev) == "t") $ checked showInventory %= not
 
   dirs <- for (zipFrom 1 ["n", "w", "e", "s"]) $ \(i, tag) => do
-    Just span <- (castTo HTMLSpanElement =<<) <$> getElementById !document ("compass-" <+> tag)
-      | _ => assert_total $ idris_crash "HTML mismatch: compass"
-    [Just a] <- map (castTo HTMLAnchorElement) <$> (elementList =<< getElementsByTagName span "a")
+    Just a <- (castTo HTMLAnchorElement =<<) <$> getElementById !document ("compass-" <+> tag)
       | _ => assert_total $ idris_crash "HTML mismatch: compass"
     pure (i, a)
 

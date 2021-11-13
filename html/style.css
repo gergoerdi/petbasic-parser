@@ -84,11 +84,8 @@ pre {
    
 }
 
-#compass > span {
+#compass > a {
     position: absolute;
-}
-
-#compass span a {
     width: 1.4em;
     display: block;
     text-align: center;
