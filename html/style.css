@@ -140,25 +140,19 @@ pre {
     left: 0;
     height: 100%;
     bottom: 0;
-}
 
-#pause {
     display: none;
-}
-
-#pause a {
-    display: block;
     height: 100%;
     width: 100%;
 }
 
-#pause a span {
+#pause span {
     position: absolute;
     right: 0;
     bottom: 0;
 }
 
-#pause a span::after {
+#pause span::after {
     content: " >>";
 }
 

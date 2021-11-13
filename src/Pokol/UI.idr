@@ -139,7 +139,7 @@ app lines = do
   Just actions <- (castTo HTMLUListElement =<<) <$> getElementById !document "actions"
     | _ => assert_total $ idris_crash $ "HTML mismatch: actions"
 
-  Just pause <- (castTo HTMLSpanElement =<<) <$> getElementById !document "pause"
+  Just pause <- (castTo HTMLAnchorElement =<<) <$> getElementById !document "pause"
     | _ => assert_total $ idris_crash $ "HTML mismatch: pause"
 
   Just inventory <- getElementById !document "inventory"
