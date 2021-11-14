@@ -33,15 +33,19 @@ pre {
     height: calc(7*1.2em);
 }
 
-#pic {
-    width: 384px;
-    height: 168px;
-    user-drag: none;
+img.pic {
+    image-rendering: pixelated;
+    /* user-drag: none; */
     object-fit: cover;
     object-position: var(--pic-offset);
     --pic-idx: 1;
+    --pic-offset: 0px calc(-1 * (var(--pic-idx) - 1) * 42px);
+}
+
+#pic {
+    width: 384px;
+    height: 168px;
     --pic-idx-prev: 1;
-    --pic-offset: 0px calc(-1 * (var(--pic-idx) - 1) * 168px);
     --pic-offset-prev: 0px calc(-1 * (var(--pic-idx-prev) - 1) * 168px);
 
     animation-duration: 0.25s;
