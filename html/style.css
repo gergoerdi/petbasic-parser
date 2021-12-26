@@ -172,13 +172,13 @@ label {
     cursor: pointer;
 }
 
-#inventory-div::before {
-    content: "Tárgyaid:";
+.inventory-header {
     display: block;
     column-span: all;
     top: 0;
     position: sticky;
     background: black;
+    padding-bottom: 4px;
 }
 
 #inventory-label {
