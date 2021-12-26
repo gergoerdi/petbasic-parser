@@ -17,7 +17,7 @@ input { display: none; }
 
 }
 
-.cube > label > div {
+.cube > label {
     width: 384px;
     height: 168px;
     position: absolute;
@@ -26,11 +26,11 @@ input { display: none; }
     overflow-y: overlay;
 }
 
-label:nth-child(1) div {
+label:nth-child(1) {
   transform: translateZ(84px);
 }
 
-label:nth-child(2) div {
+label:nth-child(2) {
   transform: rotateX(-90deg) translateY(84px);
   transform-origin: bottom left;
 }
