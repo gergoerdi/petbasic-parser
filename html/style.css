@@ -207,6 +207,27 @@ label {
     justify-content:space-between;
 }
 
+#load-list {
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+
+#load-list li {
+    padding: 10px 0;
+}
+
+#load-list a {
+    height: 42px;
+}
+
+#load-list img {
+    width: 96px;
+    height: 42px;
+    float: left;
+    margin-right: 10px;
+}
+
 * {
     /* outline: 1px solid red; */
 }
