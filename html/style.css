@@ -39,7 +39,7 @@ img.pic {
     object-fit: cover;
     object-position: var(--pic-offset);
     --pic-idx: 1;
-    --pic-offset: 0px calc(-1 * (var(--pic-idx) - 1) * 42px);
+    --pic-offset: 0px calc(-1 * (var(--pic-idx) - 1) * 168px);
 }
 
 #pic {
