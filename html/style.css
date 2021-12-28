@@ -13,13 +13,13 @@ body {
 
     position: relative;
 
-    max-width: 640;
-    min-height: 560;
-    max-height: 560;
+    max-width: 640px;
+    min-height: 560px;
+    max-height: 560px;
     margin-left: auto;
     margin-right: auto;
-    margin-top: 32;
-    margin-bottom: 32;
+    margin-top: 32px;
+    margin-bottom: 32px;
 }
 
 pre {
@@ -31,6 +31,11 @@ pre {
     margin-right: auto;
     line-height: 1.2em;
     height: calc(7*1.2em);
+}
+
+div.pic {
+    width: 384px;
+    height: 168px;
 }
 
 img.pic {
@@ -106,19 +111,19 @@ img.pic {
 }
 
 #compass-n {
-    top: 24;
+    top: 24px;
 }
 
 #compass-s {
-    bottom: 24;
+    bottom: 24px;
 }
 
 #compass-w {
-    left: 24;
+    left: 24px;
 }
 
 #compass-e {
-    right: 24;
+    right: 24px;
 }
 
 .prompt {
