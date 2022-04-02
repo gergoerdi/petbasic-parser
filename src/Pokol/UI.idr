@@ -71,7 +71,7 @@ fromOutput w out = case out of
      pure $
        [ ChangePic pic
        , ChangeText $ prim__lookupText (cast n) txt
-       , ChangePrompt "MIT TESZEL?"
+       , ChangePrompt "MAKE A CHOICE"
        ]
    WaitInput => do
      pure [ChangeActions w.actions]
