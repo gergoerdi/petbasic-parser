@@ -42,7 +42,7 @@ main : IO ()
 main = do
   (_ :: args) <- getArgs
     | _ => exitFailure
-  kvs <- for args $ \fn => do
+  kvs <- for (sort args) $ \fn => do
     Just fileKey <- pure $ fileName fn
       | Nothing => printLn fn *> exitFailure
     Right buf <- createBufferFromFile fn
